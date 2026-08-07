@@ -63,11 +63,16 @@ def _get_accessible_urls(host: str, port: int) -> list[str]:
     return urls
 
 
-def _make_shutdown_handler(server: uvicorn.Server):
-    """Return a SIGINT/SIGTERM handler that gracefully stops uvicorn and
-    kills any lingering Chrome solver processes.
+def _make_shutdown_handler(server: uvicorn.Server, tunnel_mgr=None):
+    """Return a SIGINT/SIGTERM handler that gracefully stops uvicorn,
+    closes Cloudflare tunnel, and kills any lingering Chrome solver processes.
     """
     def _handle(signum, frame):
+        if tunnel_mgr:
+            try:
+                tunnel_mgr.stop()
+            except Exception:
+                pass
         try:
             from SpotiFLAC.core.solver import _kill_all_chrome_solvers
             _kill_all_chrome_solvers()
@@ -88,6 +93,7 @@ def main() -> None:
     parser.add_argument("--host", default=default_host, help=f"Dirección host del servidor (defecto: {default_host})")
     parser.add_argument("--port", type=int, default=default_port, help=f"Puerto del servidor (defecto: {default_port})")
     parser.add_argument("--reload", action="store_true", help="Habilitar recarga automática para desarrollo")
+    parser.add_argument("--no-tunnel", action="store_true", help="Deshabilitar el túnel automático de Cloudflare")
     args = parser.parse_args()
 
     urls = _get_accessible_urls(args.host, args.port)
@@ -96,12 +102,21 @@ def main() -> None:
     print("\n" + "=" * 64)
     print(" 🚀 SpotiFLAC Extended Server — PaaS & VPS Production Ready")
     print("=" * 64)
-    print(" 📌 Direcciones de acceso directo (Sin Túneles):")
+    print(" 📌 Direcciones de acceso directo (IP / Localhost):")
     for url in urls:
         print(f"    ➜  {url}")
     print("\n 📖 Documentación OpenAPI / Swagger Docs:")
     print(f"    ➜  {primary_url}/docs")
     print("=" * 64 + "\n")
+
+    tunnel_mgr = None
+    if not args.no_tunnel and os.environ.get("DISABLE_CLOUDFLARE_TUNNEL") != "1":
+        try:
+            from SpotiFLAC.core.cloudflare_tunnel import CloudflareTunnelManager
+            tunnel_mgr = CloudflareTunnelManager(port=args.port)
+            tunnel_mgr.start()
+        except Exception as exc:
+            print(f" ⚠️ [Cloudflare] No se pudo iniciar el túnel: {exc}")
 
     config = uvicorn.Config(
         "SpotiFLAC.server.api:app",
@@ -111,7 +126,7 @@ def main() -> None:
     )
     server = uvicorn.Server(config)
 
-    handler = _make_shutdown_handler(server)
+    handler = _make_shutdown_handler(server, tunnel_mgr=tunnel_mgr)
     signal.signal(signal.SIGINT, handler)
     signal.signal(signal.SIGTERM, handler)
 

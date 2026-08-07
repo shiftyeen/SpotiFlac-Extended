@@ -57,6 +57,8 @@ async def fetch_animated_artwork(
         f"{artist} {album}".strip() if album else "",
     ]
 
+    artist_lc = artist.lower().strip()
+
     async with httpx.AsyncClient(timeout=6.0, follow_redirects=True) as client:
         for q in search_queries:
             if not q:
@@ -68,11 +70,14 @@ async def fetch_animated_artwork(
                 )
                 if resp.status_code == 200:
                     results = resp.json().get("results", [])
-                    if results:
-                        item = results[0]
-                        target_apple_url = item.get("trackViewUrl") or item.get("collectionViewUrl")
-                        if target_apple_url:
-                            break
+                    for item in results:
+                        item_artist = item.get("artistName", "").lower()
+                        if not artist_lc or artist_lc in item_artist or item_artist in artist_lc:
+                            target_apple_url = item.get("trackViewUrl") or item.get("collectionViewUrl")
+                            if target_apple_url:
+                                break
+                    if target_apple_url:
+                        break
             except Exception:
                 pass
 
@@ -105,6 +110,7 @@ async def fetch_itunes_3000x_cover_url(artist: str, title: str, album: str = "")
         f"{title} {artist}".strip(),
         f"{artist} {album}".strip() if album else "",
     ]
+    artist_lc = artist.lower().strip()
     try:
         async with httpx.AsyncClient(timeout=6.0, follow_redirects=True) as client:
             for term in search_terms:
@@ -117,15 +123,18 @@ async def fetch_itunes_3000x_cover_url(artist: str, title: str, album: str = "")
                 if resp.status_code == 200:
                     results = resp.json().get("results", [])
                     for item in results:
-                        cover_raw = item.get("artworkUrl100") or item.get("artworkUrl60")
-                        if cover_raw:
-                            high_res_url = re.sub(
-                                r"/\d+x\d+bb\.([a-z]+)$",
-                                r"/3000x3000bb.\1",
-                                cover_raw,
-                                flags=re.IGNORECASE,
-                            )
-                            return high_res_url
+                        item_artist = item.get("artistName", "").lower()
+                        # Require artist match to avoid returning wrong covers (like Piano Dreamers for Aitana)
+                        if not artist_lc or artist_lc in item_artist or item_artist in artist_lc:
+                            cover_raw = item.get("artworkUrl100") or item.get("artworkUrl60")
+                            if cover_raw:
+                                high_res_url = re.sub(
+                                    r"/\d+x\d+bb\.([a-z]+)$",
+                                    r"/3000x3000bb.\1",
+                                    cover_raw,
+                                    flags=re.IGNORECASE,
+                                )
+                                return high_res_url
     except Exception as exc:
         logger.warning("iTunes 3000x cover search failed: %s", exc)
     return None
