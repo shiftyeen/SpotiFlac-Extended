@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apple Music — SpotiFLAC Lossless Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    :root {
+      --apple-bg: #161618;
+      --apple-sidebar-bg: #1f1f22;
+      --apple-card-bg: rgba(255, 255, 255, 0.04);
+      --apple-card-border: rgba(255, 255, 255, 0.08);
+      --apple-red: #fa243c;
+      --apple-red-hover: #e01b32;
+      --apple-text-main: #ffffff;
+      --apple-text-muted: #86868b;
+      --apple-text-sub: #a1a1a6;
+      --apple-explicit-bg: #8e8e93;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, 'Inter', sans-serif;
+      background-color: var(--apple-bg);
+      color: var(--apple-text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Overall Layout Shell */
+    .app-shell {
+      display: flex;
+      flex: 1;
+      padding: 1rem;
+      gap: 1.2rem;
+      min-height: 100vh;
+    }
+
+    /* Left Sidebar Container */
+    .sidebar {
+      width: 260px;
+      background: var(--apple-sidebar-bg);
+      border: 1px solid var(--apple-card-border);
+      border-radius: 20px;
+      padding: 1.5rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex-shrink: 0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    @media (max-width: 900px) {
+      .sidebar {
+        display: none;
+      }
+    }
+
+    /* Apple Music Header Logo */
+    .apple-music-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.4rem;
+    }
+
+    .apple-music-logo svg {
+      height: 20px;
+      fill: #ffffff;
+    }
+
+    /* Sidebar Search Input */
+    .sidebar-search {
+      position: relative;
+      margin-bottom: 1.4rem;
+    }
+
+    .sidebar-search input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 0.6rem 0.8rem 0.6rem 2.2rem;
+      color: #ffffff;
+      font-size: 0.88rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .sidebar-search input::placeholder {
+      color: var(--apple-text-muted);
+    }
+
+    .sidebar-search input:focus {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .sidebar-search svg {
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 15px;
+      height: 15px;
+      fill: var(--apple-text-muted);
+    }
+
+    /* Navigation Items */
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .nav-item a {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0.65rem 0.85rem;
+      color: var(--apple-text-sub);
+      text-decoration: none;
+      font-size: 0.92rem;
+      font-weight: 600;
+      border-radius: 10px;
+      transition: all 0.15s ease;
+    }
+
+    .nav-item a svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    .nav-item.active a, .nav-item a:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+
+    .nav-item.active a {
+      color: var(--apple-red);
+    }
+
+    /* Sidebar Footer */
+    .sidebar-footer {
+      margin-top: auto;
+      padding-top: 1.2rem;
+      border-top: 1px solid var(--apple-card-border);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .open-in-music-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--apple-text-sub);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .open-in-music-link:hover {
+      color: #ffffff;
+    }
+
+    .open-in-music-link svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    .btn-sign-in {
+      width: 100%;
+      background: var(--apple-red);
+      border: none;
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.65rem;
+      border-radius: 999px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: background 0.2s ease, transform 0.15s ease;
+    }
+
+    .btn-sign-in:hover {
+      background: var(--apple-red-hover);
+      transform: scale(1.01);
+    }
+
+    .btn-sign-in svg {
+      width: 16px;
+      height: 16px;
+      fill: #ffffff;
+    }
+
+    /* Main Area Viewport */
+    .main-viewport {
+      flex: 1;
+      background: var(--apple-sidebar-bg);
+      border: 1px solid var(--apple-card-border);
+      border-radius: 20px;
+      padding: 2rem 2.5rem;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    @media (max-width: 768px) {
+      .main-viewport {
+        padding: 1.2rem;
+      }
+    }
+
+    /* Top Action Bar */
+    .top-action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2.2rem;
+      gap: 1rem;
+    }
+
+    .search-input-container {
+      position: relative;
+      flex: 1;
+      max-width: 520px;
+    }
+
+    .search-input-container input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      padding: 0.7rem 1.2rem 0.7rem 2.6rem;
+      color: #ffffff;
+      font-size: 0.92rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-input-container input:focus {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: var(--apple-red);
+      box-shadow: 0 0 12px rgba(250, 36, 60, 0.25);
+    }
+
+    .search-input-container svg {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      fill: var(--apple-text-muted);
+    }
+
+    .top-right-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .btn-circle-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-circle-icon:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-circle-icon svg {
+      width: 18px;
+      height: 18px;
+      fill: #ffffff;
+    }
+
+    /* Autocomplete Dropdown */
+    .autocomplete-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      background: rgba(30, 30, 34, 0.96);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      max-height: 400px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+    }
+
+    .autocomplete-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.85rem 1.2rem;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      transition: background 0.2s ease;
+    }
+
+    .autocomplete-item:hover {
+      background: rgba(250, 36, 60, 0.18);
+    }
+
+    .autocomplete-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+
+    .autocomplete-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .autocomplete-subtitle {
+      font-size: 0.82rem;
+      color: var(--apple-text-sub);
+    }
+
+    /* Hero Showcase Layout */
+    .hero-section {
+      display: flex;
+      gap: 2.5rem;
+      margin-bottom: 3rem;
+      align-items: flex-start;
+    }
+
+    @media (max-width: 768px) {
+      .hero-section {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+    }
+
+    .artwork-box {
+      position: relative;
+      width: 260px;
+      height: 260px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+      background: #000000;
+      flex-shrink: 0;
+    }
+
+    .artwork-box img, .artwork-box video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .artwork-badge-tag {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #54c5d0;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.25rem 0.65rem;
+      border-radius: 5px;
+    }
+
+    .hero-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hero-album-title {
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.15;
+      margin-bottom: 0.3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      letter-spacing: -0.02em;
+    }
+
+    /* Apple Music Explicit Badge */
+    .explicit-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--apple-explicit-bg);
+      color: #000000;
+      font-size: 0.62rem;
+      font-weight: 800;
+      padding: 0.12rem 0.35rem;
+      border-radius: 3px;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    .hero-artist-name {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: var(--apple-red);
+      margin-bottom: 0.35rem;
+      cursor: pointer;
+    }
+
+    .hero-genre-year {
+      font-size: 0.9rem;
+      color: var(--apple-text-muted);
+      margin-bottom: 1.2rem;
+      font-weight: 500;
+    }
+
+    .hero-editorial-desc {
+      font-size: 0.88rem;
+      color: var(--apple-text-sub);
+      line-height: 1.45;
+      margin-bottom: 1.6rem;
+      max-width: 640px;
+    }
+
+    .hero-editorial-desc span.more-btn {
+      color: var(--apple-text-main);
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Action Buttons Row */
+    .action-buttons-row {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-download-main {
+      background: #ffffff;
+      color: #000000;
+      border: none;
+      font-weight: 700;
+      font-size: 0.92rem;
+      padding: 0.65rem 1.8rem;
+      border-radius: 999px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: transform 0.15s ease, background 0.2s;
+    }
+
+    .btn-download-main:hover {
+      transform: scale(1.02);
+      background: #f0f0f0;
+    }
+
+    .btn-download-main svg {
+      width: 16px;
+      height: 16px;
+      fill: #000000;
+    }
+
+    /* Apple Custom Dropdown Component */
+    .apple-custom-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .apple-dropdown-trigger {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      padding: 0.6rem 1.2rem;
+      color: #ffffff;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      transition: background 0.2s, border-color 0.2s;
+      user-select: none;
+    }
+
+    .apple-dropdown-trigger:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .apple-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      min-width: 340px;
+      background: rgba(30, 30, 34, 0.96);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 0.4rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .apple-dropdown-menu.show {
+      display: flex;
+    }
+
+    .apple-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 0.9rem;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--apple-text-sub);
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .apple-dropdown-item:hover, .apple-dropdown-item.selected {
+      background: rgba(250, 36, 60, 0.18);
+      color: #ffffff;
+    }
+
+    .apple-dropdown-item.selected {
+      border: 1px solid rgba(250, 36, 60, 0.4);
+    }
+
+    .brand-icons-row {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .brand-icon-img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    /* Tracklist Table */
+    .tracklist-wrapper {
+      margin-top: 1.5rem;
+    }
+
+    .track-row {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem 0.8rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      transition: background 0.15s ease;
+    }
+
+    .track-row:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .track-number {
+      width: 32px;
+      font-size: 0.9rem;
+      color: var(--apple-text-muted);
+      font-weight: 500;
+    }
+
+    .track-details {
+      flex: 1;
+    }
+
+    .track-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .track-duration {
+      font-size: 0.88rem;
+      color: var(--apple-text-muted);
+      margin-right: 1rem;
+    }
+
+    .track-more-dots {
+      color: var(--apple-text-muted);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 0 0.4rem;
+    }
+
+    /* Progress & Download Status Card */
+    .status-card {
+      margin-top: 1.8rem;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--apple-card-border);
+      border-radius: 16px;
+      padding: 1.4rem;
+      display: none;
+    }
+
+    .progress-bar-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 0.8rem 0;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--apple-red);
+      transition: width 0.3s ease;
+    }
+
+    .log-output-box {
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 10px;
+      padding: 0.8rem 1rem;
+      font-family: SFMono-Regular, Consolas, monospace;
+      font-size: 0.82rem;
+      color: #30d158;
+      max-height: 130px;
+      overflow-y: auto;
+      margin-top: 0.8rem;
+    }
+
+    /* Verification Turnstile Challenge Modal Box */
+    .verification-box {
+      margin-top: 1.2rem;
+      padding: 1.2rem;
+      background: rgba(250, 36, 60, 0.12);
+      border: 1px solid rgba(250, 36, 60, 0.35);
+      border-radius: 14px;
+      display: none;
+    }
+
+    .verification-box h4 {
+      color: var(--apple-red);
+      font-size: 0.98rem;
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    /* Extensions Panel Section */
+    .extensions-section {
+      margin-top: 3rem;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--apple-card-border);
+      border-radius: 18px;
+      padding: 1.6rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-shell">
+    <!-- Left Sidebar Shell -->
+    <aside class="sidebar">
+      <div>
+        <div class="apple-music-logo">
+          <svg viewBox="0 0 83 20" xmlns="http://www.w3.org/2000/svg">
+            <path d="M34.752 19.746V6.243h-.088l-5.433 13.503h-2.074L21.711 6.243h-.087v13.503h-2.548V1.399h3.235l5.833 14.621h.1l5.82-14.62h3.248v18.347h-2.56zm16.649 0h-2.586v-2.263h-.062c-.725 1.602-2.061 2.504-4.072 2.504-2.86 0-4.61-1.894-4.61-4.958V6.37h2.698v8.125c0 2.034.95 3.127 2.81 3.127 1.95 0 3.124-1.373 3.124-3.458V6.37H51.4zm7.394-13.618c3.06 0 5.046 1.73 5.134 4.196h-2.536c-.15-1.296-1.087-2.11-2.598-2.11-1.462 0-2.436.724-2.436 1.793 0 .839.6 1.41 2.023 1.741l2.136.496c2.686.636 3.71 1.704 3.71 3.636 0 2.442-2.236 4.12-5.333 4.12-3.285 0-5.26-1.64-5.509-4.183h2.673c.25 1.398 1.187 2.085 2.836 2.085 1.623 0 2.623-.687 2.623-1.78 0-.865-.487-1.373-1.924-1.704l-2.136-.508c-2.498-.585-3.735-1.806-3.735-3.75 0-2.391 2.049-4.032 5.072-4.032M66.1 2.836c0-.878.7-1.577 1.561-1.577.862 0 1.55.7 1.55 1.577 0 .864-.688 1.576-1.55 1.576a1.573 1.573 0 0 1-1.56-1.576zm.212 3.534h2.698v13.376h-2.698zm14.089 4.603c-.275-1.424-1.324-2.556-3.085-2.556-2.086 0-3.46 1.767-3.46 4.64 0 2.938 1.386 4.642 3.485 4.642 1.66 0 2.748-.928 3.06-2.48H83C82.713 18.067 80.477 20 77.317 20c-3.76 0-6.208-2.62-6.208-6.942 0-4.247 2.448-6.93 6.183-6.93 3.385 0 5.446 2.213 5.683 4.845h-2.573zM10.824 3.189c-.698.834-1.805 1.496-2.913 1.398-.145-1.128.41-2.33 1.036-3.065C9.644.662 10.848.05 11.835 0c.121 1.178-.336 2.33-1.01 3.19zm.999 1.619c.624.049 2.425.244 3.578 1.98-.096.074-2.137 1.272-2.113 3.79.024 3.01 2.593 4.012 2.617 4.037-.024.074-.407 1.419-1.344 2.812-.817 1.224-1.657 2.422-3.002 2.447-1.297.024-1.73-.783-3.218-.783-1.489 0-1.97.758-3.194.807-1.297.048-2.28-1.297-3.097-2.52C.368 14.908-.904 10.408.825 7.375c.84-1.516 2.377-2.47 4.034-2.495 1.273-.023 2.45.857 3.218.857.769 0 2.137-1.027 3.746-.93z"/>
+          </svg>
+        </div>
+
+        <div class="sidebar-search">
+          <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          <input type="text" id="sidebar-url-input" placeholder="Search" oninput="handleSearchInput(this.value)">
+        </div>
+
+        <ul class="nav-list">
+          <li class="nav-item active">
+            <a href="#">
+              <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+              Home
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#">
+              <svg viewBox="0 0 24 24"><path d="M4 11h5V5H4v6zm0 7h5v-6H4v6zm6 0h5v-6h-5v6zm6 0h5v-6h-5v6zm-6-7h5V5h-5v6zm6-6v6h5V5h-5z"/></svg>
+              New
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#">
+              <svg viewBox="0 0 24 24"><path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-.83-.51-1.57-1.24-1.85l-7.38-2.85c-.88-.34-1.88-.34-2.76 0L3.24 6.15zM12 4.43l7 2.7V8H5V7.13l7-2.7zM12 18c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/></svg>
+              Radio
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#extensions-card" onclick="document.getElementById('extensions-card').scrollIntoView({behavior:'smooth'})">
+              <svg viewBox="0 0 24 24"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7s2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/></svg>
+              Extensiones
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/docs" target="_blank">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+              REST API
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <a href="https://music.apple.com" target="_blank" class="open-in-music-link">
+          Open in Music
+          <svg viewBox="0 0 16 16"><path d="M1.559 16 13.795 3.764v8.962H16V0H3.274v2.205h8.962L0 14.441z"/></svg>
+        </a>
+        <button class="btn-sign-in" onclick="startDownload()">
+          <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          Descargar
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Viewport Shell -->
+    <main class="main-viewport">
+      <!-- Top Action Bar -->
+      <div class="top-action-bar">
+        <div class="search-input-container">
+          <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          <input type="text" id="spotify-url" placeholder="Search or paste link (Spotify, Apple Music, Deezer, YouTube...)..." value="https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT" oninput="handleSearchInput(this.value)">
+          <div id="autocomplete-box" class="autocomplete-dropdown"></div>
+        </div>
+
+        <div class="top-right-actions">
+          <button class="btn-circle-icon" title="Share" onclick="resolveUrl()">
+            <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+          </button>
+          <button class="btn-circle-icon" title="Options" onclick="startDownload()">
+            <svg viewBox="0 0 24 24"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Hero Showcase Section -->
+      <section class="hero-section" id="artwork-box">
+        <div class="artwork-box" id="art-media-container">
+          <img id="art-img" src="https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/97/c7/f2/97c7f256-6db0-a45b-a786-f58dc928c970/196871404495.jpg/600x600bf-60.jpg" alt="Cover">
+          <div class="artwork-badge-tag" id="art-type-badge">3000x iTunes HD</div>
+        </div>
+
+        <div class="hero-info">
+          <h1 class="hero-album-title" id="meta-title">
+            Scarlet
+          </h1>
+          <div class="hero-artist-name" id="meta-artist">Doja Cat</div>
+          <div class="hero-genre-year" id="meta-album">Rap · 2023</div>
+
+          <p class="hero-editorial-desc" id="meta-description">
+            “I never learned to superstar from a textbook,” Doja Cat snarls towards the end of “Attention,” a song that’s all at once a boom-bap showcase, an R&amp;B slow-burner, and a canny summary of her against-the-odds rise. <span class="more-btn">MORE</span>
+          </p>
+
+          <div class="action-buttons-row">
+            <button class="btn-download-main" onclick="startDownload()">
+              <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              Descargar
+            </button>
+
+            <!-- Custom Apple Quality Selector Dropdown with Brand Logos -->
+            <div class="apple-custom-dropdown" id="quality-custom-dd">
+              <div class="apple-dropdown-trigger" onclick="toggleQualityMenu(event)">
+                <span class="brand-icons-row" id="trigger-brand-icons"></span>
+                <span id="trigger-label">Hi-Res Lossless (24-bit / 96-192kHz)</span>
+                <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:var(--apple-text-muted);margin-left:auto;"><path d="M7 10l5 5 5-5z"/></svg>
+              </div>
+
+              <div class="apple-dropdown-menu" id="quality-menu-list"></div>
+            </div>
+            <input type="hidden" id="quality-select" value="HI_RES_LOSSLESS">
+          </div>
+        </div>
+      </section>
+
+      <!-- Tracklist Table -->
+      <section class="tracklist-wrapper">
+        <div class="track-row">
+          <div class="track-number">1</div>
+          <div class="track-details">
+            <div class="track-title" id="tracklist-name">
+              Agora Hills
+            </div>
+            <div style="font-size:0.82rem; color:var(--apple-text-sub);" id="tracklist-sub">Doja Cat — Scarlet</div>
+          </div>
+          <div class="track-duration" id="tracklist-isrc">4:25</div>
+          <div class="track-more-dots">•••</div>
+        </div>
+      </section>
+
+      <!-- Progress Section & Logs -->
+      <section class="status-card" id="progress-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span id="current-track-name" style="font-weight:600; color:#ffffff;">Procesando...</span>
+          <span id="progress-percent" style="font-weight:700; color:#54c5d0;">0%</span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+        <div class="log-output-box" id="log-box">Esperando respuesta del servidor...</div>
+
+        <div id="dl-result-container" style="display:none; text-align:center; margin-top:1.2rem;">
+          <a id="btn-download-file" href="#" class="btn-sign-in" style="display:inline-flex; width:auto; padding:0.8rem 2.2rem; text-decoration:none; font-size:0.95rem;" target="_blank">DESCARGAR ARCHIVO (.FLAC)</a>
+        </div>
+
+        <!-- Cloudflare Turnstile Alert Box -->
+        <div class="verification-box" id="verification-alert-box">
+          <h4>Verificación Cloudflare Turnstile Requerida</h4>
+          <p style="font-size:0.85rem; color:var(--apple-text-sub); margin-bottom:0.8rem;">
+            Se requiere verificar la sesión para procesar la descarga de audio. Haz clic abajo para abrir la ventana de verificación:
+          </p>
+          <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+            <button id="btn-open-challenge" onclick="openChallengePopup()" class="btn-sign-in" style="width:auto; padding:0.55rem 1.2rem; font-size:0.85rem;">Abrir Verificación en Navegador</button>
+            <input type="text" id="manual-grant-input" placeholder="Pega aquí el grant o token (grant-gr_...)..." style="flex:1; min-width:200px; padding:0.55rem 0.9rem; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.15); border-radius:8px; color:#fff; font-size:0.85rem;">
+            <button onclick="submitManualGrant()" class="apple-select-pill" style="background:#54c5d0; color:#000; font-weight:700;">Enviar Grant</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Extensions Panel -->
+      <section class="extensions-section" id="extensions-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem;">
+          <h3 style="font-size:1.2rem; font-weight:700;">Extensiones &amp; Configuración</h3>
+          <button onclick="syncAllExtensions()" class="apple-select-pill" style="font-size:0.8rem; color:#54c5d0;">Sincronizar Todo</button>
+        </div>
+
+        <div style="display:flex; gap:0.75rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+          <input type="text" id="ext-install-id" placeholder="ID de extensión (ej: tidal-web, amazon...)" style="flex:1; min-width:200px; padding:0.65rem 1rem; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:#fff;">
+          <button onclick="installExtension()" id="btn-install-ext" class="btn-sign-in" style="width:auto; padding:0.65rem 1.4rem;">+ Instalar</button>
+        </div>
+
+        <div id="ext-list" style="display:flex; flex-direction:column; gap:0.8rem;"></div>
+
+        <!-- Settings Modal/Panel -->
+        <div id="ext-settings-panel" style="display:none; margin-top:1.5rem; padding:1.2rem; background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h4 id="ext-settings-title" style="color:#54c5d0;">Settings</h4>
+            <div style="display:flex; gap:0.5rem;">
+              <button onclick="resetExtSettings()" style="background:rgba(255,100,100,0.15); border:1px solid rgba(255,100,100,0.3); color:#f87171; padding:0.35rem 0.75rem; border-radius:6px; cursor:pointer; font-size:0.8rem;">Reset</button>
+              <button onclick="document.getElementById('ext-settings-panel').style.display='none'" style="background:rgba(255,255,255,0.08); border:none; color:var(--apple-text-muted); padding:0.35rem 0.75rem; border-radius:6px; cursor:pointer; font-size:0.8rem;">Cerrar</button>
+            </div>
+          </div>
+          <div id="ext-settings-fields" style="display:flex; flex-direction:column; gap:0.8rem;"></div>
+          <button onclick="saveExtSettings()" class="btn-sign-in" style="margin-top:1rem; width:auto; padding:0.65rem 1.4rem;">Guardar Configuración</button>
+          <div id="ext-settings-msg" style="margin-top:0.75rem; font-size:0.85rem;"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    let currentTaskId = null;
+    let ws = null;
+    let searchTimeout = null;
+    let installedExtensionsMap = {};
+    let providersCapabilities = [];
+
+    // Bulletproof vector SVG brand logos
+    const BRAND_SVGS = {
+      apple: `<img src="https://cdn.simpleicons.org/applemusic/white" class="brand-icon-img" alt="Apple Music">`,
+      tidal: `<img src="https://cdn.simpleicons.org/tidal/white" class="brand-icon-img" alt="Tidal">`,
+      qobuz: `<svg viewBox="0 0 24 24" class="brand-icon-img" style="fill:#ffffff;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`,
+      deezer: `<img src="https://cdn.simpleicons.org/deezer/white" class="brand-icon-img" alt="Deezer">`,
+      amazon: `<svg viewBox="0 0 24 24" class="brand-icon-img" style="fill:#ffffff;"><path d="M15.93 17.09c-2.44 1.8-6.14 2.75-9.17 2.75-4.25 0-8.08-1.57-10.96-4.21-.23-.21-.05-.5.22-.34 3.12 1.86 7.02 2.97 11 2.97 2.69 0 5.62-.64 8.24-1.95.4-.2.78.23.67.78zm1.26-1.52c-.31-.4-.63-.8-.94-1.2-.13-.17-.07-.3.12-.22.84.34 1.99.78 2.77 1.25.26.15.22.42-.08.47-1.12.18-1.55-.13-1.87-.3zm.93-1.83c-.24-.31-.48-.63-.71-.94-.1-.13-.04-.23.11-.17.65.27 1.54.61 2.15.98.2.12.17.33-.06.37-.87.14-1.21-.1-1.49-.24z"/></svg>`,
+      spotify: `<img src="https://cdn.simpleicons.org/spotify/white" class="brand-icon-img" alt="Spotify">`,
+      youtube: `<img src="https://cdn.simpleicons.org/youtubemusic/white" class="brand-icon-img" alt="YouTube Music">`,
+      soundcloud: `<img src="https://cdn.simpleicons.org/soundcloud/white" class="brand-icon-img" alt="SoundCloud">`,
+      pandora: `<img src="https://cdn.simpleicons.org/pandora/white" class="brand-icon-img" alt="Pandora">`
+    };
+
+    const QUALITY_DEFINITIONS = [
+      { id: "DOLBY_ATMOS", label: "Dolby Atmos / Audio Espacial", defaultBrands: ["tidal", "amazon"] },
+      { id: "HI_RES_LOSSLESS", label: "Hi-Res Lossless (24-bit / 96-192kHz)", defaultBrands: ["qobuz", "tidal", "amazon"] },
+      { id: "LOSSLESS", label: "FLAC Lossless (CD 16-bit / 44.1kHz)", defaultBrands: ["deezer", "tidal", "qobuz"] },
+      { id: "HIGH", label: "Alta Calidad (320 kbps MP3/AAC)", defaultBrands: ["amazon", "youtube", "deezer", "soundcloud"] },
+      { id: "LOW", label: "Estándar (128 kbps)", defaultBrands: ["youtube", "pandora"] }
+    ];
+
+    async function fetchProvidersConfig() {
+      try {
+        const res = await fetch('/api/v1/providers/capabilities');
+        const data = await res.json();
+        providersCapabilities = data.providers || [];
+      } catch (e) {
+        console.log('Error fetching providers capabilities:', e);
+      }
+      renderQualityDropdown();
+    }
+
+    function renderQualityDropdown() {
+      const menuEl = document.getElementById('quality-menu-list');
+      const selectedVal = document.getElementById('quality-select').value;
+      let html = '';
+
+      QUALITY_DEFINITIONS.forEach(q => {
+        // Collect real-time matching provider brands from configuration JSON
+        const matchingBrands = new Set(q.defaultBrands);
+        providersCapabilities.forEach(prov => {
+          // Skip metadata-only providers (e.g. Apple Music, Spotify Web) for download qualities
+          if (prov.is_download_provider === false) return;
+
+          const provId = prov.id.toLowerCase();
+          const hasQuality = prov.qualities && prov.qualities.some(item => item.id === q.id || item.name.toLowerCase().includes(q.id.toLowerCase()));
+          if (hasQuality) {
+            if (provId.includes('qobuz')) matchingBrands.add('qobuz');
+            if (provId.includes('tidal')) matchingBrands.add('tidal');
+            if (provId.includes('amazon')) matchingBrands.add('amazon');
+            if (provId.includes('deezer')) matchingBrands.add('deezer');
+            if (provId.includes('ytmusic') || provId.includes('youtube')) matchingBrands.add('youtube');
+            if (provId.includes('pandora')) matchingBrands.add('pandora');
+            if (provId.includes('soundcloud')) matchingBrands.add('soundcloud');
+          }
+        });
+
+        const brandsArray = Array.from(matchingBrands);
+        const iconsMarkup = brandsArray.map(b => BRAND_SVGS[b] || '').join('');
+        const isSelected = q.id === selectedVal ? 'selected' : '';
+
+        html += `
+          <div class="apple-dropdown-item ${isSelected}" data-qid="${q.id}" onclick="selectQuality('${q.id}', '${q.label.replace(/'/g, "\\'")}', '${brandsArray.join(',')}', event)">
+            <span class="brand-icons-row">${iconsMarkup}</span>
+            <span>${q.label}</span>
+          </div>
+        `;
+      });
+
+      menuEl.innerHTML = html;
+
+      // Set initial selected item on trigger
+      const current = QUALITY_DEFINITIONS.find(q => q.id === selectedVal) || QUALITY_DEFINITIONS[1];
+      const initialIcons = current.defaultBrands.map(b => BRAND_SVGS[b] || '').join('');
+      document.getElementById('trigger-brand-icons').innerHTML = initialIcons;
+      document.getElementById('trigger-label').textContent = current.label;
+    }
+
+    function toggleQualityMenu(event) {
+      event.stopPropagation();
+      const menu = document.getElementById('quality-menu-list');
+      menu.classList.toggle('show');
+    }
+
+    function selectQuality(val, label, brandKeysStr, event) {
+      if (event) event.stopPropagation();
+      document.getElementById('quality-select').value = val;
+      document.getElementById('trigger-label').textContent = label;
+
+      const brandKeys = brandKeysStr ? brandKeysStr.split(',') : [];
+      let iconsHtml = brandKeys.map(b => BRAND_SVGS[b] || '').join('');
+      document.getElementById('trigger-brand-icons').innerHTML = iconsHtml;
+
+      document.querySelectorAll('.apple-dropdown-item').forEach(el => el.classList.remove('selected'));
+      if (event && event.currentTarget) {
+        event.currentTarget.classList.add('selected');
+      }
+      document.getElementById('quality-menu-list').classList.remove('show');
+    }
+
+    document.addEventListener('click', () => {
+      const menu = document.getElementById('quality-menu-list');
+      if (menu) menu.classList.remove('show');
+    });
+
+    function handleSearchInput(query) {
+      const box = document.getElementById('autocomplete-box');
+      if (searchTimeout) clearTimeout(searchTimeout);
+
+      if (!query || query.trim().length < 2 || query.startsWith('http')) {
+        box.style.display = 'none';
+        return;
+      }
+
+      searchTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/v1/search?q=${encodeURIComponent(query.trim())}`);
+          const items = await res.json();
+
+          if (!items || items.length === 0) {
+            box.style.display = 'none';
+            return;
+          }
+
+          let html = '';
+          items.forEach(item => {
+            const cover = item.cover_url || 'https://via.placeholder.com/60';
+            const escapedUrl = item.url.replace(/'/g, "\\'");
+            const escapedTitle = item.title.replace(/'/g, "\\'");
+            const escapedArtist = item.artist.replace(/'/g, "\\'");
+            const explicitBadge = item.explicit ? ' <span class="explicit-tag">E</span>' : '';
+
+            html += `
+              <div class="autocomplete-item" onclick="selectSuggestion('${escapedUrl}', '${escapedTitle}', '${escapedArtist}')">
+                <img src="${cover}" class="autocomplete-thumb" alt="Cover">
+                <div class="autocomplete-details">
+                  <div class="autocomplete-title">${item.title}${explicitBadge}</div>
+                  <div class="autocomplete-subtitle">Song · ${item.artist} — ${item.album}</div>
+                </div>
+              </div>
+            `;
+          });
+
+          box.innerHTML = html;
+          box.style.display = 'block';
+        } catch (e) {
+          box.style.display = 'none';
+        }
+      }, 300);
+    }
+
+    function selectSuggestion(url, title, artist) {
+      document.getElementById('spotify-url').value = url;
+      document.getElementById('autocomplete-box').style.display = 'none';
+      resolveUrl();
+    }
+
+    async function resolveUrl() {
+      const urlInput = document.getElementById('spotify-url').value.trim() || document.getElementById('sidebar-url-input').value.trim();
+      if (!urlInput) return;
+
+      const metaTitle = document.getElementById('meta-title');
+      const metaArtist = document.getElementById('meta-artist');
+      const metaAlbum = document.getElementById('meta-album');
+      const trackName = document.getElementById('tracklist-name');
+      const trackSub = document.getElementById('tracklist-sub');
+      const trackIsrc = document.getElementById('tracklist-isrc');
+
+      metaTitle.innerText = 'Resolviendo metadatos por Apple Music...';
+
+      try {
+        const res = await fetch(`/api/v1/metadata?url=${encodeURIComponent(urlInput)}`);
+        const data = await res.json();
+
+        if (data.tracks && data.tracks.length > 0) {
+          const t = data.tracks[0];
+          const isExplicit = t.explicit || t.is_explicit;
+          const explicitBadge = isExplicit ? ' <span class="explicit-tag">E</span>' : '';
+
+          metaTitle.innerHTML = `${t.title}${explicitBadge}`;
+          metaArtist.innerText = t.artist;
+          metaAlbum.innerText = `${t.album} · 2026`;
+
+          trackName.innerHTML = `${t.title}${explicitBadge}`;
+          trackSub.innerText = `${t.artist} — ${t.album}`;
+          trackIsrc.innerText = t.isrc ? `ISRC: ${t.isrc}` : 'FLAC Lossless';
+
+          // Instantly query Apple Music Animated cover & 3000x HD artwork
+          fetchArtwork(t.artist, t.album, t.title, t.cover_url);
+        }
+      } catch (err) {
+        metaTitle.innerText = 'Error resolviendo enlace';
+      }
+    }
+
+    async function fetchArtwork(artist, album, title, defaultCover) {
+      const artContainer = document.getElementById('art-media-container');
+
+      try {
+        const res = await fetch(`/api/v1/artwork/info?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}&title=${encodeURIComponent(title)}`);
+        const data = await res.json();
+
+        if (data.animated_url) {
+          artContainer.innerHTML = `<video id="art-video" autoplay loop muted playsinline style="width:100%;height:100%;object-fit:cover;"></video><div class="artwork-badge-tag" style="background:rgba(250,36,60,0.85);color:#fff;">Animada Apple Music</div>`;
+          const video = document.getElementById('art-video');
+
+          if (data.animated_url.includes('.m3u8')) {
+            if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+              const hls = new Hls();
+              hls.loadSource(data.animated_url);
+              hls.attachMedia(video);
+              hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                video.play().catch(e => console.log(e));
+              });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+              video.src = data.animated_url;
+              video.play().catch(e => console.log(e));
+            }
+          } else {
+            video.src = data.animated_url;
+            video.play().catch(e => console.log(e));
+          }
+        } else {
+          const imgUrl = data.hd_cover_url || defaultCover;
+          artContainer.innerHTML = `<img src="${imgUrl}" alt="Cover"><div class="artwork-badge-tag">3000x iTunes HD</div>`;
+        }
+      } catch (e) {
+        artContainer.innerHTML = `<img src="${defaultCover}" alt="Cover"><div class="artwork-badge-tag">Standard Cover</div>`;
+      }
+    }
+
+    async function startDownload() {
+      const url = document.getElementById('spotify-url').value.trim() || document.getElementById('sidebar-url-input').value.trim();
+      const quality = document.getElementById('quality-select').value;
+      
+      // Default smart multi-provider fallback order
+      const services = ["ext:tidal-web", "qobuz", "amazon", "tidal", "deezer", "ext:qobuz-web", "youtube"];
+
+      const progressCard = document.getElementById('progress-card');
+      progressCard.style.display = 'block';
+      document.getElementById('dl-result-container').style.display = 'none';
+      progressCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      try {
+        const res = await fetch('/api/v1/downloads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: url,
+            quality: quality,
+            services: services
+          })
+        });
+
+        const data = await res.json();
+        if (data.task && data.task.task_id) {
+          currentTaskId = data.task.task_id;
+          connectWebSocket(currentTaskId);
+        }
+      } catch (err) {
+        alert('Error iniciando descarga: ' + err);
+      }
+    }
+
+    function connectWebSocket(taskId) {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${location.host}/api/v1/tasks/${taskId}/ws`;
+
+      ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (evt) => {
+        const task = JSON.parse(evt.data);
+        updateProgressUI(task);
+      };
+    }
+
+    let currentChallengeUrl = null;
+
+    function updateProgressUI(task) {
+      document.getElementById('progress-fill').style.width = `${task.progress_percentage}%`;
+      document.getElementById('progress-percent').innerText = `${Math.round(task.progress_percentage)}%`;
+      document.getElementById('current-track-name').innerText = task.current_track || 'Procesando...';
+
+      const logBox = document.getElementById('log-box');
+      if (task.logs && task.logs.length > 0) {
+        logBox.innerHTML = task.logs.join('<br>');
+        logBox.scrollTop = logBox.scrollHeight;
+
+        // Auto-detect Turnstile challenge URL in logs
+        const verifyLog = task.logs.find(l => l.includes('Verification required:'));
+        if (verifyLog) {
+          const match = verifyLog.match(/https:\/\/api\.zarz\.moe\/v2\/challenge[^\s]+/);
+          if (match) {
+            currentChallengeUrl = match[0];
+            document.getElementById('verification-alert-box').style.display = 'block';
+          }
+        }
+      }
+
+      if (task.status === 'completed') {
+        const dlContainer = document.getElementById('dl-result-container');
+        const dlBtn = document.getElementById('btn-download-file');
+        
+        dlContainer.style.display = 'block';
+        dlBtn.href = `/api/v1/files/${task.task_id}`;
+        document.getElementById('verification-alert-box').style.display = 'none';
+
+        if (task.total_tracks === 1) {
+          dlBtn.innerHTML = `DESCARGAR CANCIÓN (.FLAC)`;
+        } else {
+          dlBtn.innerHTML = `DESCARGAR ÁLBUM / PLAYLIST (${task.downloaded_files ? task.downloaded_files.length : task.total_tracks} TRACKS .ZIP)`;
+        }
+      }
+    }
+
+    function openChallengePopup() {
+      if (currentChallengeUrl) {
+        try {
+          const urlObj = new URL(currentChallengeUrl);
+          const originalCbStr = urlObj.searchParams.get("cb");
+          if (originalCbStr) {
+            const originalCbUrl = new URL(originalCbStr);
+            const state = originalCbUrl.searchParams.get("state") || "zarz-v2";
+            const newCb = window.location.origin + "/api/v1/sessions/grant_callback?state=" + state;
+            urlObj.searchParams.set("cb", newCb);
+            currentChallengeUrl = urlObj.href;
+          }
+        } catch (e) {
+          console.error("Error rewriting challenge callback URL", e);
+        }
+        window.open(currentChallengeUrl, 'TurnstileVerification', 'width=520,height=620,scrollbars=yes');
+      } else {
+        alert('No se encontró URL de desafío activa.');
+      }
+    }
+
+    async function submitManualGrant(grantText = null, stateText = "zarz-v2") {
+      const grant = grantText || document.getElementById('manual-grant-input').value.trim();
+      if (!grant) { alert('Ingresa un token o grant válido'); return; }
+      try {
+        const res = await fetch('/api/v1/sessions/grant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ namespace: stateText, grant: grant })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          console.log('Sesión verificada y guardada correctamente. Reanudando descarga...');
+          document.getElementById('verification-alert-box').style.display = 'none';
+        } else {
+          if (!grantText) alert('Error: ' + data.detail);
+        }
+      } catch (e) {
+        if (!grantText) alert('Error enviando grant: ' + e);
+      }
+    }
+
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'cloudflare_success') {
+        const grant = event.data.grant;
+        const state = event.data.state;
+        if (grant) {
+          submitManualGrant(grant, state);
+          document.getElementById('verification-alert-box').style.display = 'none';
+        }
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchProvidersConfig();
+      resolveUrl();
+      loadExtensions();
+    });
+
+    // ─── Extensions & Dynamic Providers ──────────────────────
+
+    async function loadExtensions() {
+      const listEl = document.getElementById('ext-list');
+      try {
+        const [installedRes, registryRes] = await Promise.all([
+          fetch('/api/v1/extensions/installed'),
+          fetch('/api/v1/extensions/registry')
+        ]);
+        const installed = await installedRes.json();
+        const registry = await registryRes.json();
+
+        installedExtensionsMap = {};
+        installed.forEach(ext => {
+          installedExtensionsMap[ext.name] = ext;
+          installedExtensionsMap[`ext:${ext.name}`] = ext;
+        });
+
+        renderExtensionList(installed, registry.extensions || []);
+      } catch(e) {
+        listEl.innerHTML = `<p style="color:#f87171; font-size:0.9rem;">Error cargando extensiones: ${e}</p>`;
+      }
+    }
+
+    async function syncAllExtensions() {
+      const listEl = document.getElementById('ext-list');
+      listEl.innerHTML = '<p style="color:#54c5d0; font-size:0.9rem;">Descargando y sincronizando todas las extensiones del registro oficial...</p>';
+      try {
+        const res = await fetch('/api/v1/extensions/sync', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          alert(data.message);
+          loadExtensions();
+        } else {
+          alert('Error: ' + data.detail);
+        }
+      } catch (e) {
+        alert('Error sincronizando extensiones: ' + e);
+      }
+    }
+
+    function renderExtensionList(installed, registryExts) {
+      const listEl = document.getElementById('ext-list');
+      const installedNames = new Set(installed.map(e => e.name));
+
+      let html = '';
+
+      installed.forEach(ext => {
+        const regEntry = registryExts.find(r => r.id === ext.name);
+        const hasUpdate = regEntry && regEntry.version !== ext.version;
+        html += `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:0.85rem 1rem; background:rgba(255,255,255,0.04); border:1px solid var(--apple-card-border); border-radius:12px; flex-wrap:wrap; gap:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+              <span style="display:inline-block; width:8px; height:8px; background:#30d158; border-radius:50%; box-shadow:0 0 8px #30d158;"></span>
+              <div>
+                <div style="font-weight:600; font-size:0.92rem;">${ext.display_name}</div>
+                <div style="font-size:0.78rem; color:var(--apple-text-muted);">v${ext.version} · ${ext.is_download_provider ? 'Download' : ''}${ext.is_metadata_provider ? ' Metadata' : ''}</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:0.4rem;">
+              ${hasUpdate ? `<button onclick="installExtension('${ext.name}')" style="background:rgba(250,196,0,0.15); border:1px solid rgba(250,196,0,0.4); color:#fbbf24; padding:0.35rem 0.75rem; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:600;">Actualizar</button>` : ''}
+              <button onclick="openExtSettings('${ext.name}')" class="apple-select-pill" style="font-size:0.8rem; padding:0.35rem 0.75rem;">Settings</button>
+              <button onclick="uninstallExtension('${ext.name}')" style="background:rgba(255,100,100,0.12); border:1px solid rgba(255,100,100,0.3); color:#f87171; padding:0.35rem 0.75rem; border-radius:6px; cursor:pointer; font-size:0.8rem;">Eliminar</button>
+            </div>
+          </div>
+        `;
+      });
+
+      const availableToInstall = registryExts.filter(r => !installedNames.has(r.id));
+      if (availableToInstall.length > 0) {
+        html += `<div style="margin-top:0.6rem; font-size:0.75rem; color:var(--apple-text-muted); letter-spacing:0.08em; text-transform:uppercase; font-weight:700;">Disponibles en el Registro</div>`;
+        availableToInstall.forEach(ext => {
+          html += `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.75rem 1rem; background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.08); border-radius:12px; flex-wrap:wrap; gap:0.5rem;">
+              <div>
+                <div style="font-weight:600; font-size:0.88rem; color:var(--apple-text-sub);">${ext.display_name}</div>
+                <div style="font-size:0.75rem; color:rgba(142,142,147,0.7);">v${ext.version} · ${ext.category}</div>
+              </div>
+              <button onclick="installExtension('${ext.id}')" style="background:rgba(48,209,88,0.15); border:1px solid rgba(48,209,88,0.35); color:#30d158; padding:0.35rem 0.85rem; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:600;">+ Instalar</button>
+            </div>
+          `;
+        });
+      }
+
+      listEl.innerHTML = html;
+    }
+
+    async function installExtension(extId) {
+      const id = extId || document.getElementById('ext-install-id').value.trim();
+      if (!id) { alert('Ingresa el ID o URL de la extensión'); return; }
+      const btn = document.getElementById('btn-install-ext');
+      if (btn) { btn.disabled = true; btn.textContent = 'Instalando...'; }
+      try {
+        const res = await fetch('/api/v1/extensions/install', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ download_url_or_id: id })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(data.message);
+          document.getElementById('ext-install-id').value = '';
+          loadExtensions();
+        } else {
+          alert('Error: ' + data.detail);
+        }
+      } catch(e) { alert('Error instalando: ' + e); }
+      finally { if (btn) { btn.disabled = false; btn.textContent = '+ Instalar'; } }
+    }
+
+    async function uninstallExtension(name) {
+      if (!confirm(`¿Desinstalar la extensión '${name}'?`)) return;
+      const res = await fetch(`/api/v1/extensions/${name}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) { alert(data.message); loadExtensions(); }
+      else alert(data.detail);
+    }
+
+    let activeSettingsExtId = null;
+
+    async function openExtSettings(extId) {
+      activeSettingsExtId = extId;
+      const panel = document.getElementById('ext-settings-panel');
+      const title = document.getElementById('ext-settings-title');
+      const fields = document.getElementById('ext-settings-fields');
+      const msg = document.getElementById('ext-settings-msg');
+      msg.textContent = '';
+
+      try {
+        const res = await fetch(`/api/v1/extensions/${extId}/settings`);
+        if (!res.ok) { alert('No se pudieron cargar los settings.'); return; }
+        const data = await res.json();
+
+        title.textContent = `${data.display_name} — Settings`;
+
+        let html = '';
+        const values = data.current_values || {};
+        const schema = data.settings_schema || [];
+
+        if (schema.length > 0) {
+          schema.forEach(field => {
+            const val = values[field.key] !== undefined ? values[field.key] : (field.default || '');
+            const inputType = field.type === 'password' ? 'password' : 'text';
+            html += `
+              <div>
+                <label style="display:block; font-size:0.8rem; color:var(--apple-text-muted); font-weight:600; margin-bottom:0.3rem;">${field.label || field.key}</label>
+                <input id="sfield-${field.key}" type="${inputType}" value="${val}"
+                  style="width:100%; padding:0.6rem 0.9rem; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:8px; color:#fff; font-size:0.88rem;">
+              </div>
+            `;
+          });
+        } else {
+          Object.entries(values).forEach(([k, v]) => {
+            html += `
+              <div>
+                <label style="display:block; font-size:0.8rem; color:var(--apple-text-muted); font-weight:600; margin-bottom:0.3rem;">${k}</label>
+                <input id="sfield-${k}" type="text" value="${v}"
+                  style="width:100%; padding:0.6rem 0.9rem; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:8px; color:#fff; font-size:0.88rem;">
+              </div>
+            `;
+          });
+        }
+
+        fields.innerHTML = html || '<p style="color:var(--apple-text-muted);">Esta extensión no tiene opciones configurables.</p>';
+        panel.style.display = 'block';
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch(e) {
+        alert('Error cargando settings: ' + e);
+      }
+    }
+
+    async function saveExtSettings() {
+      if (!activeSettingsExtId) return;
+      const msg = document.getElementById('ext-settings-msg');
+      const inputs = document.querySelectorAll('[id^="sfield-"]');
+      const settings = {};
+      inputs.forEach(inp => {
+        const key = inp.id.replace('sfield-', '');
+        settings[key] = inp.value;
+      });
+      try {
+        const res = await fetch(`/api/v1/extensions/${activeSettingsExtId}/settings`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msg.style.color = '#30d158';
+          msg.textContent = data.message;
+        } else {
+          msg.style.color = '#f87171';
+          msg.textContent = data.detail;
+        }
+      } catch(e) {
+        msg.style.color = '#f87171';
+        msg.textContent = 'Error: ' + e;
+      }
+    }
+
+    async function resetExtSettings() {
+      if (!activeSettingsExtId) return;
+      if (!confirm('¿Resetear configuración a valores por defecto?')) return;
+      const msg = document.getElementById('ext-settings-msg');
+      try {
+        const res = await fetch(`/api/v1/extensions/${activeSettingsExtId}/reset-settings`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          msg.style.color = '#30d158';
+          msg.textContent = data.message;
+          openExtSettings(activeSettingsExtId);
+        } else {
+          msg.style.color = '#f87171';
+          msg.textContent = data.detail;
+        }
+      } catch(e) {
+        msg.style.color = '#f87171';
+        msg.textContent = 'Error: ' + e;
+      }
+    }
+  </script>
+</body>
+</html>

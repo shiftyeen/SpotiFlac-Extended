@@ -1,0 +1,100 @@
+{
+  "providers": [
+    {
+      "id": "apple-music",
+      "display_name": "Apple Music",
+      "is_download_provider": false,
+      "is_metadata_provider": true,
+      "capabilities": ["Metadata Provider", "Search Provider", "Lyrics Provider", "3000x Artwork"],
+      "qualities": []
+    },
+    {
+      "id": "spotify-web",
+      "display_name": "Spotify",
+      "is_download_provider": false,
+      "is_metadata_provider": true,
+      "capabilities": ["Metadata Provider", "Search Provider", "Home Feed"],
+      "qualities": []
+    },
+    {
+      "id": "tidal-web",
+      "display_name": "Tidal",
+      "is_download_provider": true,
+      "is_metadata_provider": true,
+      "capabilities": ["Metadata Provider", "Download Provider", "Search Provider", "Service Health"],
+      "qualities": [
+        { "id": "DOLBY_ATMOS", "name": "Dolby Atmos", "details": "Try Dolby Atmos first, then fall back to Hi-Res, Lossless, and High" },
+        { "id": "HI_RES_LOSSLESS", "name": "Hi-Res FLAC Max", "details": "24-bit / up to 192kHz" },
+        { "id": "LOSSLESS", "name": "FLAC Lossless", "details": "16-bit / 44.1kHz" },
+        { "id": "HIGH", "name": "High", "details": "Fallback compressed TIDAL stream" },
+        { "id": "LOW", "name": "Low", "details": "Lowest quality fallback" }
+      ]
+    },
+    {
+      "id": "amazon",
+      "display_name": "Amazon Music",
+      "is_download_provider": true,
+      "is_metadata_provider": true,
+      "capabilities": ["Metadata Provider", "Download Provider", "Search Provider", "Service Health"],
+      "qualities": [
+        { "id": "HI_RES_LOSSLESS", "name": "FLAC Best Available", "details": "Best available quality (up to 24-bit/192kHz)" },
+        { "id": "HIGH", "name": "Opus 320kbps", "details": "High quality Opus audio at 320kbps" },
+        { "id": "DOLBY_ATMOS", "name": "Dolby Digital Plus / Atmos", "details": "Dolby Digital Plus surround sound (E-AC-3)" }
+      ]
+    },
+    {
+      "id": "qobuz-web",
+      "display_name": "Qobuz",
+      "is_download_provider": true,
+      "is_metadata_provider": true,
+      "capabilities": ["Metadata Provider", "Download Provider", "Search Provider"],
+      "qualities": [
+        { "id": "HI_RES_LOSSLESS", "name": "Hi-Res FLAC Max", "details": "24-bit / up to 192kHz" },
+        { "id": "LOSSLESS", "name": "FLAC Lossless", "details": "16-bit / 44.1kHz" }
+      ]
+    },
+    {
+      "id": "deezer",
+      "display_name": "Deezer",
+      "is_download_provider": true,
+      "is_metadata_provider": true,
+      "capabilities": ["Metadata Provider", "Download Provider", "Search Provider", "Service Health"],
+      "qualities": [
+        { "id": "LOSSLESS", "name": "FLAC Lossless", "details": "Best available Deezer FLAC stream" },
+        { "id": "HIGH", "name": "High 320kbps", "details": "MP3 320kbps stream" }
+      ]
+    },
+    {
+      "id": "ytmusic-spotiflac",
+      "display_name": "YouTube Music",
+      "is_download_provider": true,
+      "is_metadata_provider": true,
+      "capabilities": ["Metadata Provider", "Download Provider", "Search Provider"],
+      "qualities": [
+        { "id": "HIGH", "name": "Best Audio", "details": "Opus/M4A audio direct from YouTube" },
+        { "id": "LOW", "name": "Standard Audio", "details": "128kbps audio stream" }
+      ]
+    },
+    {
+      "id": "pandora",
+      "display_name": "Pandora",
+      "is_download_provider": true,
+      "is_metadata_provider": true,
+      "capabilities": ["Metadata Provider", "Download Provider", "Search Provider"],
+      "qualities": [
+        { "id": "HIGH", "name": "MP3 192kbps", "details": "Best Pandora quality when available" },
+        { "id": "LOW", "name": "AAC 64kbps", "details": "Medium/Lowest Pandora quality" }
+      ]
+    },
+    {
+      "id": "soundcloud",
+      "display_name": "SoundCloud",
+      "is_download_provider": true,
+      "is_metadata_provider": true,
+      "capabilities": ["Metadata Provider", "Download Provider", "Search Provider"],
+      "qualities": [
+        { "id": "HIGH", "name": "Best Audio", "details": "Direct SoundCloud streams" }
+      ]
+    }
+  ]
+}
