@@ -1,4 +1,6 @@
-python server.py --host 0.0.0.0 --port 8000
+python3 server.py --host 0.0.0.0 --port 8080
+
+pm2 start server.py --interpreter python3 --name spotiflac -- --host 0.0.0.0 --port 8080
 
 Se ha actualizado [`server.py`](file:///c:/Users/oscar/Desktop/spotiflac-extended/server.py) para que imprima automáticamente en la consola de tu VPS la **IP pública real y los enlaces de acceso directo** cada vez que el servidor inicie.
 
@@ -12,7 +14,7 @@ Si tu VPS tiene una IP pública (por ejemplo `164.92.120.45` en DigitalOcean, AW
 
 1. Al ejecutar en tu VPS:
    ```bash
-   python server.py --host 0.0.0.0 --port 8080
+   python3 server.py --host 0.0.0.0 --port 8080
    ```
 2. La consola te mostrará tus enlaces de acceso inmediato:
    - 🎨 **Interfaz Web**: `http://<TU_IP_VPS>:8080/`
