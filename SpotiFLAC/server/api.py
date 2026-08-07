@@ -319,9 +319,10 @@ async def _enrich_track_dict(tr: Dict[str, Any]) -> Dict[str, Any]:
         am = _AppleMusicMeta()
         enriched = await am.fetch_async(title, artist, isrc=isrc)
 
-        if enriched.title:
+        orig_artist = tr.get("artist", "").lower().strip()
+        enr_artist = (enriched.artist or "").lower().strip()
+        if enriched.title and enriched.artist and (not orig_artist or orig_artist in enr_artist or enr_artist in orig_artist):
             tr["title"] = enriched.title
-        if enriched.artist:
             tr["artist"] = enriched.artist
         tr["album_artist"] = enriched.album_artist or tr.get("artist", "")
         if enriched.album and enriched.album != "YouTube":

@@ -287,11 +287,15 @@ class _AppleMusicMeta:
             results = r.json().get("results", [])
             if not results:
                 return None
-            artist_lc = artist.lower()
+            artist_lc = artist.lower().strip()
             for item in results:
-                if artist_lc in item.get("artistName", "").lower():
+                item_artist = item.get("artistName", "").lower()
+                if artist_lc in item_artist or item_artist in artist_lc:
                     return item
-            return results[0]
+
+            # Do NOT return results[0] if artist does not match!
+            # Returning results[0] causes incorrect overwriting (e.g., returning 'Piano Dreamers' cover instead of Aitana).
+            return None
         except Exception as exc:
             logger.debug("[meta/apple] async %s", exc)
             return None
