@@ -13,10 +13,10 @@ import uvicorn
 
 
 def _get_accessible_urls(host: str, port: int) -> list[str]:
-    """Resolves local, LAN, and PaaS environment URLs for direct access without tunnels."""
+    """Resolves local, LAN, public VPS IP, and PaaS environment URLs for direct access without tunnels."""
     urls = []
 
-    # 1. Environment variables from PaaS (e.g. Hugging Face, Railway, Render, VPS)
+    # 1. Environment variables from PaaS / VPS (e.g. PUBLIC_URL, PAAS_URL, HOST_URL, SPACE_HOST)
     paas_url = os.environ.get("PUBLIC_URL") or os.environ.get("PAAS_URL") or os.environ.get("HOST_URL")
     if paas_url:
         urls.append(paas_url.rstrip("/"))
@@ -43,13 +43,20 @@ def _get_accessible_urls(host: str, port: int) -> list[str]:
     except Exception:
         pass
 
+    # 4. Public VPS IP
     try:
-        hostname = socket.gethostname()
-        host_ip = socket.gethostbyname(hostname)
-        if host_ip and host_ip not in ("127.0.0.1", "0.0.0.0"):
-            lan_url = f"http://{host_ip}:{port}"
-            if lan_url not in urls:
-                urls.append(lan_url)
+        async def _fetch_public_ip():
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                resp = await client.get("https://api.ipify.org")
+                if resp.status_code == 200:
+                    return resp.text.strip()
+            return None
+
+        pub_ip = asyncio.run(_fetch_public_ip())
+        if pub_ip and not pub_ip.startswith("127."):
+            pub_url = f"http://{pub_ip}:{port}"
+            if pub_url not in urls:
+                urls.append(pub_url)
     except Exception:
         pass
 
@@ -73,7 +80,7 @@ def _make_shutdown_handler(server: uvicorn.Server):
 
 def main() -> None:
     default_host = os.environ.get("HOST", "0.0.0.0")
-    default_port = int(os.environ.get("PORT", "8000"))
+    default_port = int(os.environ.get("PORT", "8080"))
 
     parser = argparse.ArgumentParser(
         description="SpotiFLAC Extended — Servidor API REST de Descarga de Música y Metadatos"
