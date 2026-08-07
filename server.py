@@ -86,15 +86,15 @@ def main() -> None:
     urls = _get_accessible_urls(args.host, args.port)
     primary_url = urls[0] if urls else f"http://localhost:{args.port}"
 
-    print("\n" + "═" * 64)
+    print("\n" + "=" * 64)
     print(" 🚀 SpotiFLAC Extended Server — PaaS & VPS Production Ready")
-    print("═" * 64)
+    print("=" * 64)
     print(" 📌 Direcciones de acceso directo (Sin Túneles):")
     for url in urls:
         print(f"    ➜  {url}")
     print("\n 📖 Documentación OpenAPI / Swagger Docs:")
     print(f"    ➜  {primary_url}/docs")
-    print("═" * 64 + "\n")
+    print("=" * 64 + "\n")
 
     config = uvicorn.Config(
         "SpotiFLAC.server.api:app",
