@@ -911,8 +911,12 @@ _AUTH_LOCKS: dict[str, asyncio.Lock] = {}
 
 def _get_auth_lock(namespace: str) -> asyncio.Lock:
     """Restituisce (creandolo se assente) l'asyncio.Lock per il namespace."""
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        current_loop = None
     lock = _AUTH_LOCKS.get(namespace)
-    if lock is None:
+    if lock is None or getattr(lock, "_loop", None) is not current_loop:
         lock = asyncio.Lock()
         _AUTH_LOCKS[namespace] = lock
     return lock

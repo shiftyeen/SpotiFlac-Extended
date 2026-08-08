@@ -17,11 +17,19 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-logger = logging.getLogger(__name__)
-
-# Sostituiamo threading.Lock con asyncio.Lock per non bloccare l'event loop
-_io_lock = asyncio.Lock()
+_io_lock_obj: asyncio.Lock | None = None
 _PROFILES_FILE = Path.home() / ".cache" / "spotiflac" / "profiles.json"
+
+
+def _get_io_lock() -> asyncio.Lock:
+    global _io_lock_obj
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        current_loop = None
+    if _io_lock_obj is None or getattr(_io_lock_obj, "_loop", None) is not current_loop:
+        _io_lock_obj = asyncio.Lock()
+    return _io_lock_obj
 
 
 class ProfileConfig(BaseModel):
@@ -98,7 +106,7 @@ def _write_file_sync(data_str: str) -> None:
 
 
 async def _load_async() -> dict:
-    async with _io_lock:
+    async with _get_io_lock():
         try:
             raw_data = await asyncio.to_thread(_read_file_sync)
             if raw_data:
@@ -129,7 +137,7 @@ async def _load_async() -> dict:
 
 
 async def _write_async(profiles: dict) -> None:
-    async with _io_lock:
+    async with _get_io_lock():
         try:
             data_str = json.dumps(profiles, indent=2)
             await asyncio.to_thread(_write_file_sync, data_str)

@@ -8,9 +8,20 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_io_lock = asyncio.Lock()
+_io_lock_obj: asyncio.Lock | None = None
 _SESSION_FILE = Path.home() / ".cache" / "spotiflac" / "session.json"
 _MAX_HISTORY = 20
+
+
+def _get_io_lock() -> asyncio.Lock:
+    global _io_lock_obj
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        current_loop = None
+    if _io_lock_obj is None or getattr(_io_lock_obj, "_loop", None) is not current_loop:
+        _io_lock_obj = asyncio.Lock()
+    return _io_lock_obj
 
 
 def _read_file_sync() -> dict:
@@ -27,7 +38,7 @@ def _write_file_sync(data: dict) -> None:
 
 
 async def _load_async() -> dict:
-    async with _io_lock:
+    async with _get_io_lock():
         try:
             # Delegate disk read and JSON parsing to a worker thread
             return await asyncio.to_thread(_read_file_sync)
@@ -37,7 +48,7 @@ async def _load_async() -> dict:
 
 
 async def _save_async(data: dict) -> None:
-    async with _io_lock:
+    async with _get_io_lock():
         try:
             # Delegate disk write and JSON dump to a worker thread
             await asyncio.to_thread(_write_file_sync, data)

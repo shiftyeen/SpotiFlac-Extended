@@ -12,6 +12,7 @@ import os
 import re
 import threading
 import time
+import urllib.parse
 from urllib.parse import urlparse
 
 import aiofiles

@@ -457,9 +457,19 @@ class QobuzProvider(BaseProvider):
             headers={"User-Agent": _DEFAULT_UA, "Accept": "application/json"},
         )
         self._creds: QobuzCredentials | None = None
-        self._creds_lock = asyncio.Lock()
+        self._creds_lock_obj: asyncio.Lock | None = None
         self._qobuz_token = qobuz_token or os.environ.get("QOBUZ_AUTH_TOKEN")
         self._local_api_url = local_api_url or os.environ.get("QOBUZ_LOCAL_API_URL")
+
+    @property
+    def _creds_lock(self) -> asyncio.Lock:
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            current_loop = None
+        if self._creds_lock_obj is None or getattr(self._creds_lock_obj, "_loop", None) is not current_loop:
+            self._creds_lock_obj = asyncio.Lock()
+        return self._creds_lock_obj
 
     async def _async_raw_request(
         self,
