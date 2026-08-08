@@ -26,8 +26,17 @@ def safe_print(*args: object, **kwargs: Any) -> None:
 
 
 def safe_tqdm_write(msg: str, file: io.TextIOBase | None = None) -> None:
+    target_file = file or sys.stdout
     with tqdm.get_lock():
-        tqdm.write(msg, file=file or sys.stdout)
+        try:
+            tqdm.write(msg, file=target_file)
+        except UnicodeEncodeError:
+            enc = getattr(target_file, "encoding", None) or "ascii"
+            safe_msg = msg.encode(enc, errors="replace").decode(enc, errors="replace")
+            with contextlib.suppress(Exception):
+                tqdm.write(safe_msg, file=target_file)
+        except Exception:
+            pass
 
 
 class TqdmLoggingHandler(logging.Handler):
@@ -68,7 +77,15 @@ class _TqdmTextIOProxy(io.TextIOBase):
             self._buf += s
             while "\n" in self._buf:
                 line, self._buf = self._buf.split("\n", 1)
-                tqdm.write(line, file=self._original)
+                try:
+                    tqdm.write(line, file=self._original)
+                except UnicodeEncodeError:
+                    enc = getattr(self._original, "encoding", None) or "ascii"
+                    safe_line = line.encode(enc, errors="replace").decode(enc, errors="replace")
+                    with contextlib.suppress(Exception):
+                        tqdm.write(safe_line, file=self._original)
+                except Exception:
+                    pass
         return len(s)
 
     def flush(self) -> None:

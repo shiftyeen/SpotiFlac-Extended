@@ -147,7 +147,7 @@ class DownloadRequest(BaseModel):
     url: str = Field(..., example="https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT", description="URL o URI de Spotify, Apple Music, Tidal, Deezer, YouTube, SoundCloud o Pandora")
     output_dir: Optional[str] = Field(None, description="Directorio de destino opcional")
     services: Optional[List[str]] = Field(
-        default=["ext:qobuz-web", "amazon", "ext:tidal-web", "qobuz", "deezer", "tidal", "youtube"],
+        default=["ext:qobuz-web", "qobuz", "ext:tidal-web", "tidal", "amazon", "deezer", "youtube"],
         description="Lista prioritaria de proveedores a consultar"
     )
     quality: str = Field("LOSSLESS", example="HI_RES_LOSSLESS", description="Calidad esperada: DOLBY_ATMOS, HI_RES_LOSSLESS, LOSSLESS, HIGH, LOW")

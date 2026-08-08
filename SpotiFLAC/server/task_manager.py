@@ -22,7 +22,7 @@ class DownloadTask:
     output_dir: str
     status: str = "pending"  # pending, running, completed, failed, cancelled
     quality: str = "LOSSLESS"
-    services: List[str] = field(default_factory=lambda: ["ext:qobuz-web", "amazon", "ext:tidal-web", "qobuz", "deezer", "tidal", "youtube"])
+    services: List[str] = field(default_factory=lambda: ["ext:qobuz-web", "qobuz", "ext:tidal-web", "tidal", "amazon", "deezer", "youtube"])
     progress_percentage: float = 0.0
     current_track: Optional[str] = None
     tracks_completed: int = 0

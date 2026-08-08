@@ -274,7 +274,11 @@ async def download_one_async(
                 is_ext = provider.name.startswith("ext:")
                 target_type = "extension" if is_ext else "provider"
                 safe_tqdm_write(
-                    f"  ⚠️  Fallback: switching to backup {target_type} ({provider.name})...",
+                    f"  ⚠️  Fallback: conmutando a {target_type} ({provider.name})...",
+                )
+            else:
+                safe_tqdm_write(
+                    f"  ▶ Consultando proveedor: {provider.name}...",
                 )
 
             logger.info(
