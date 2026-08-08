@@ -22,13 +22,18 @@ class DownloadTask:
     output_dir: str
     status: str = "pending"  # pending, running, completed, failed, cancelled
     quality: str = "LOSSLESS"
-    services: List[str] = field(default_factory=lambda: ["qobuz", "amazon", "tidal", "deezer", "youtube"])
+    services: List[str] = field(default_factory=lambda: ["ext:qobuz-web", "amazon", "ext:tidal-web", "qobuz", "deezer", "tidal", "youtube"])
     progress_percentage: float = 0.0
     current_track: Optional[str] = None
     tracks_completed: int = 0
     total_tracks: int = 0
+    error: Optional[str] = None
     verification_url: Optional[str] = None
     needs_verification: bool = False
+    downloaded_files: List[str] = field(default_factory=list)
+    created_at: str = field(default_factory=lambda: datetime.datetime.utcnow().isoformat())
+    completed_at: Optional[str] = None
+    logs: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
