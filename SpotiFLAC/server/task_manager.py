@@ -139,7 +139,7 @@ class TaskManager:
             url=url,
             output_dir=out_dir,
             quality=quality,
-            services=services or ["ext:tidal-web", "ext:qobuz-web", "amazon", "qobuz", "deezer", "youtube"],
+            services=services or ["ext:qobuz-web", "amazon", "ext:tidal-web", "qobuz", "deezer", "tidal", "youtube"],
         )
         self._tasks[task_id] = task
 

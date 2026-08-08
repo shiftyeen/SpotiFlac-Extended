@@ -553,10 +553,26 @@ class SignedSessionClient:
           so it remains visible even with the default logging configuration
           (WARNING) used by SpotiFLAC(...).
         """
+    def _emit_verification_url(
+        self,
+        url: str,
+        callback: Callable[[str], None] | None = None,
+    ) -> None:
+        banner = f"""
+================================================================
+ VERIFICACION DE CLOUDFLARE TURNSTILE REQUERIDA
+================================================================
+ Se requiere verificar la sesion para el servicio {self.namespace}.
+ Abre el siguiente enlace en tu navegador para verificar:
+
+ -> VERIFICATION URL:
+    {url}
+================================================================
+"""
+        print(banner, flush=True)
+        logger.warning("[signed_session] Verification required: %s", url)
         if callback is not None:
             callback(url)
-            return
-        logger.warning("[signed_session] Verification required: %s", url)
 
     async def verify_challenge(self, challenge_id: str, turnstile_token: str) -> str:
         """NON CHIAMARLO DIRETTAMENTE da Python — lasciato solo per riferimento.
