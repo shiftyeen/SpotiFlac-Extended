@@ -1551,23 +1551,23 @@ function mapMusicDLQuality(qualityCode) {
 
 function normalizeQualityCode(quality) {
   switch (String(quality || "").trim().toUpperCase()) {
-    case "HI_RES":
-      return "7";
     case "HI_RES_LOSSLESS":
     case "DEFAULT":
     case "":
       return "27";
+    case "HI_RES":
+      return "7";
     case "LOSSLESS":
     default:
-      return "6";
+      return "27";
   }
 }
 
 function qualityFallbackChain(quality) {
   var code = normalizeQualityCode(quality);
-  if (code === "27") return ["27", "7", "6"];
-  if (code === "7") return ["7", "6"];
-  return ["6"];
+  if (code === "27") return ["27", "7", "5", "6"];
+  if (code === "7") return ["7", "5", "6"];
+  return ["27", "7", "5", "6"];
 }
 
 function parseDownloadInfo(payload) {
