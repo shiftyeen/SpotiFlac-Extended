@@ -27,11 +27,8 @@ class DownloadTask:
     current_track: Optional[str] = None
     tracks_completed: int = 0
     total_tracks: int = 0
-    error: Optional[str] = None
-    downloaded_files: List[str] = field(default_factory=list)
-    created_at: str = field(default_factory=lambda: datetime.datetime.utcnow().isoformat())
-    completed_at: Optional[str] = None
-    logs: List[str] = field(default_factory=list)
+    verification_url: Optional[str] = None
+    needs_verification: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -46,6 +43,8 @@ class DownloadTask:
             "tracks_completed": self.tracks_completed,
             "total_tracks": self.total_tracks,
             "error": self.error,
+            "needs_verification": self.needs_verification,
+            "verification_url": self.verification_url,
             "downloaded_files": self.downloaded_files,
             "created_at": self.created_at,
             "completed_at": self.completed_at,
@@ -213,6 +212,14 @@ class TaskManager:
     def add_log(self, task: DownloadTask, message: str) -> None:
         task.logs.append(message)
         logger.info("[Task %s] %s", task.task_id[:8], message)
+
+        import re
+        vmatch = re.search(r"https?://[^\s'\"]*(?:challenge|index\.html\?challenge)[^\s'\"]*", message)
+        if vmatch:
+            task.needs_verification = True
+            task.verification_url = vmatch.group(0)
+            task.status = "verification_required"
+
         self._notify_listeners(task)
 
     async def _run_download_task(
