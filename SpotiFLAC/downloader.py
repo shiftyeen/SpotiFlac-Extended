@@ -877,10 +877,13 @@ class SpotiflacDownloader:
             async def _resolve_one(i: int, track: TrackMetadata):
                 if track.isrc:
                     return i, track
-                if hasattr(resolver, "get_isrc_async"):
-                    resolved = await resolver.get_isrc_async(track.id)
-                else:
-                    resolved = await asyncio.to_thread(resolver.get_isrc, track.id)
+                try:
+                    if hasattr(resolver, "get_isrc_async"):
+                        resolved = await asyncio.wait_for(resolver.get_isrc_async(track.id), timeout=5.0)
+                    else:
+                        resolved = await asyncio.wait_for(asyncio.to_thread(resolver.get_isrc, track.id), timeout=5.0)
+                except Exception:
+                    resolved = None
 
                 if resolved:
                     return i, track.model_copy(update={"isrc": resolved})

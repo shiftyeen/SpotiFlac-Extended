@@ -264,31 +264,9 @@ class TaskManager:
                     self.add_log(task, "No se encontraron pistas para descargar.")
                     return
 
-                # Download track by track
-                for idx, track_meta in enumerate(tracks, 1):
-                    if task.status == "cancelled":
-                        self.add_log(task, "Descarga cancelada por el usuario.")
-                        return
-
-                    artist_name = getattr(track_meta, "artists", getattr(track_meta, "first_artist", ""))
-                    task.current_track = f"{track_meta.title} - {artist_name}"
-                    provider_str = ", ".join(task.services) if task.services else "Auto"
-                    self.add_log(
-                        task,
-                        f"[{idx}/{task.total_tracks}] Descargando: {task.current_track} · Proveedor: {provider_str} · Calidad: {task.quality}",
-                    )
-
-                    try:
-                        await client.download_track(task.url)
-                    except Exception as trk_err:
-                        self.add_log(
-                            task,
-                            f"Error en pista '{task.current_track}': {trk_err}",
-                        )
-
-                    task.tracks_completed = idx
-                    task.progress_percentage = (idx / task.total_tracks) * 100.0
-                    self._notify_listeners(task)
+                # Download all tracks cleanly in a single pass
+                self.add_log(task, f"Iniciando descarga de {task.total_tracks} pista(s)...")
+                await client.download_track(task.url)
 
                 # Scan output directory for downloaded audio files
                 out_path = Path(task.output_dir)
@@ -297,13 +275,13 @@ class TaskManager:
                     if p.is_file() and p.suffix.lower() in (".flac", ".mp3", ".m4a", ".zip")
                 ]
                 task.downloaded_files = downloaded_files
-
-                task.status = "completed"
+                task.tracks_completed = task.total_tracks
                 task.progress_percentage = 100.0
+                task.status = "completed"
                 task.completed_at = datetime.datetime.utcnow().isoformat()
                 self.add_log(
                     task,
-                    f"Descarga finalizada. {len(task.downloaded_files)} archivos guardados en {task.output_dir}",
+                    f"Descarga finalizada. {len(task.downloaded_files)} archivo(s) guardado(s).",
                 )
 
         except asyncio.CancelledError:
