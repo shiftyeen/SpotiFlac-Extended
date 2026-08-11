@@ -2,6 +2,13 @@ python3 server.py --host 0.0.0.0 --port 8080
 
 pm2 start server.py --interpreter python3 --name spotiflac -- --host 0.0.0.0 --port 8080
 
+# 1. Instalar Chromium y dependencias de navegador en Linux (Ubuntu/Debian)
+sudo apt update && sudo apt install -y chromium-browser chromium-chromedriver xvfb
+
+# 2. Asegurarte de tener pydoll en el entorno virtual Python de tu VPS
+pip install pydoll-python
+
+
 Se ha actualizado [`server.py`](file:///c:/Users/oscar/Desktop/spotiflac-extended/server.py) para que imprima automáticamente en la consola de tu VPS la **IP pública real y los enlaces de acceso directo** cada vez que el servidor inicie.
 
 Existen **3 formas principales** para acceder a tu servidor en el VPS:
