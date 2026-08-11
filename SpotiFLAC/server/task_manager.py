@@ -68,38 +68,55 @@ class TaskManager:
         self._cleanup_task: Optional[asyncio.Task] = None
 
     def start_periodic_cleanup(self) -> None:
-        """Start a background loop for purging temporary files older than 24 hours (86,400s)."""
+        """Start a background loop for purging temporary files older than 6 hours (21,600s)."""
         if self._cleanup_task is None or self._cleanup_task.done():
             self._cleanup_task = asyncio.create_task(self._cleanup_loop())
 
     async def _cleanup_loop(self) -> None:
         while True:
             try:
-                await asyncio.sleep(3600)  # Check every hour
-                self.purge_expired_files_and_tasks(max_age_seconds=86400)
+                await asyncio.sleep(1800)  # Check every 30 minutes
+                self.purge_expired_files_and_tasks(max_age_seconds=21600)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.warning("Error in 24h cleanup loop: %s", e)
+                logger.warning("Error in 6h cleanup loop: %s", e)
 
-    def purge_expired_files_and_tasks(self, max_age_seconds: int = 86400) -> int:
-        """Delete temporary download files and task entries older than max_age_seconds."""
+    def cleanup_task_dir(self, task_id: str) -> None:
+        """Deletes the output directory and entry of a task when downloaded successfully."""
+        task = self._tasks.get(task_id)
+        if task and task.output_dir:
+            import shutil
+            out_path = Path(task.output_dir)
+            if out_path.exists():
+                try:
+                    shutil.rmtree(out_path, ignore_errors=True)
+                    logger.info("[Cleanup] Removed downloaded task folder: %s", task.output_dir)
+                except Exception as err:
+                    logger.warning("[Cleanup] Failed to remove folder %s: %s", task.output_dir, err)
+            self._tasks.pop(task_id, None)
+
+    def purge_expired_files_and_tasks(self, max_age_seconds: int = 21600) -> int:
+        """Delete temporary download files and task entries older than max_age_seconds (6 hours)."""
         now = datetime.datetime.utcnow()
         purged_count = 0
 
-        # Purge files in default output directory
+        # Purge folders and files in default output directory
         target_dir = Path(self.default_output_dir)
         if target_dir.exists():
-            for item in target_dir.glob("**/*"):
-                if item.is_file():
-                    try:
-                        mtime = datetime.datetime.utcfromtimestamp(item.stat().st_mtime)
-                        if (now - mtime).total_seconds() > max_age_seconds:
+            for item in target_dir.glob("*"):
+                try:
+                    mtime = datetime.datetime.utcfromtimestamp(item.stat().st_mtime)
+                    if (now - mtime).total_seconds() > max_age_seconds:
+                        if item.is_dir():
+                            import shutil
+                            shutil.rmtree(item, ignore_errors=True)
+                        else:
                             item.unlink()
-                            purged_count += 1
-                            logger.info("[24h Cleanup] Removed expired temp file: %s", item.name)
-                    except Exception as err:
-                        logger.warning("Failed to delete temp file %s: %s", item, err)
+                        purged_count += 1
+                        logger.info("[6h Cleanup] Removed expired temp item: %s", item.name)
+                except Exception as err:
+                    logger.warning("Failed to delete temp item %s: %s", item, err)
 
         # Purge old tasks from memory
         to_delete = []

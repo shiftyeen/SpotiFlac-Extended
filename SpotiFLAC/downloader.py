@@ -505,7 +505,7 @@ class DownloadWorker:
         gruppo vengono cancellati in modo pulito invece di proseguire
         silenziosamente.
         """
-        max_concurrent = max(1, getattr(self._opts, "max_concurrent_downloads", 2))
+        max_concurrent = max(1, getattr(self._opts, "max_concurrent_downloads", 4))
         semaphore = asyncio.Semaphore(max_concurrent)
         results_queue: asyncio.Queue[tuple[TrackMetadata, object] | None] = (
             asyncio.Queue()

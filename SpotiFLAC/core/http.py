@@ -242,7 +242,7 @@ class AsyncHttpClient:
         url: str,
         dest_path: str,
         progress_cb: Any = None,
-        chunk_size: int = 256 * 1024,
+        chunk_size: int = 1024 * 1024,
         extra_headers: dict | None = None,
         stop_event: asyncio.Event | None = None,
     ) -> None:

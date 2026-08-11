@@ -402,8 +402,8 @@ function nodeFileDownload(rawUrl, outputPath, opts, callId) {
       headers:  Object.assign({}, extraHeaders),
     };
 
-    // ── Progress tracking (NEW) ──────────────────────────────────────
-    const PROGRESS_THRESHOLD = 128 * 1024;
+    // ── Progress tracking ──────────────────────────────────────
+    const PROGRESS_THRESHOLD = 512 * 1024;
     let received = 0;
     let total = 0;
     let lastReportedBytes = 0;

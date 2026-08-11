@@ -95,7 +95,7 @@ class JSExtensionProvider(BaseProvider):
             )
 
         # --- RUNTIME POOL CONFIGURATION ---
-        self._max_runtimes = 2
+        self._max_runtimes = 4
         self._runtimes_created = 0
         self._idle_runtimes = queue.Queue()
         self._all_runtimes = []

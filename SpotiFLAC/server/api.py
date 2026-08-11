@@ -601,6 +601,14 @@ async def download_task_files(task_id: str):
             raise HTTPException(status_code=404, detail="Archivo no encontrado en disco")
         ext = filepath.suffix.lower()
         media_type = "audio/flac" if ext == ".flac" else ("audio/mpeg" if ext == ".mp3" else "application/octet-stream")
+
+        # Elimina la carpeta del trabajo una vez entregado el archivo con éxito al cliente
+        async def _cleanup_task_dir():
+            await asyncio.sleep(2)
+            task_manager.cleanup_task_dir(task_id)
+
+        asyncio.create_task(_cleanup_task_dir())
+
         return FileResponse(path=filepath, filename=filepath.name, media_type=media_type)
 
     zip_path = Path(task.output_dir) / f"spotiflac_{task_id[:8]}.zip"
@@ -610,6 +618,13 @@ async def download_task_files(task_id: str):
                 p = Path(fpath)
                 if p.exists():
                     zf.write(p, arcname=p.name)
+
+    # Elimina la carpeta del trabajo una vez entregado el archivo ZIP con éxito al cliente
+    async def _cleanup_task_dir():
+        await asyncio.sleep(2)
+        task_manager.cleanup_task_dir(task_id)
+
+    asyncio.create_task(_cleanup_task_dir())
 
     return FileResponse(path=zip_path, filename=zip_path.name, media_type="application/zip")
 
