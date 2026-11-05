@@ -1,0 +1,33 @@
+{
+  "name": "wavex",
+  "version": "1.0.0",
+  "description": "Lightweight Music Metadata and Download API powered by SpotiFLAC/Mornye extensions in TypeScript",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc && node -e \"require('fs').cpSync('src/runtime/bridge-worker.cjs', 'dist/runtime/bridge-worker.cjs')\""
+  },
+  "keywords": [
+    "music",
+    "flac",
+    "metadata",
+    "spotiflac",
+    "mornye",
+    "api"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@fastify/cors": "^11.3.1",
+    "@fastify/static": "^10.1.7",
+    "adm-zip": "^0.6.1",
+    "fastify": "^5.12.7"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

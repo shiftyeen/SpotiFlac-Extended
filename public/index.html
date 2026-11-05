@@ -1,0 +1,3054 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apple Music / WaveX — New</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #1f1f1f;
+      --bg-main: #1f1f1f;
+      --bg-sidebar: rgba(37, 37, 38, 0.92);
+      --bg-lcd: rgba(44, 44, 46, 0.92);
+      --bg-card: #262628;
+      --bg-card-hover: #303033;
+      --border: rgba(255, 255, 255, 0.09);
+      --border-focus: rgba(250, 35, 59, 0.7);
+      --text: #ffffff;
+      --text-muted: rgba(235, 235, 245, 0.6);
+      --apple-red: #fa233b;
+      --apple-pink: #fb3b52;
+      --accent-cyan: #38bdf8;
+      --accent-purple: #a78bfa;
+      --glow: rgba(250, 35, 59, 0.25);
+      --radius: 12px;
+      --radius-sm: 6px;
+      --sidebar-w: 260px;
+      --top-bar-h: 56px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+    }
+
+    /* =========================================================================
+       APPLE MUSIC LEFT SIDEBAR (beta.music.apple.com)
+       ========================================================================= */
+    .am-sidebar {
+      width: var(--sidebar-w);
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      background: var(--bg-sidebar);
+      backdrop-filter: blur(50px) saturate(180%);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      padding: 16px 14px;
+      overflow-y: auto;
+    }
+
+    .am-logo-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 10px 16px;
+    }
+
+    .am-brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      text-decoration: none;
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .am-brand svg {
+      width: 24px;
+      height: 24px;
+      fill: var(--apple-red);
+    }
+
+    .am-sidebar-search {
+      position: relative;
+      margin-bottom: 18px;
+    }
+
+    .search-input-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.32);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 7px 10px;
+      transition: all 0.2s ease;
+    }
+
+    .search-input-box:focus-within {
+      border-color: var(--apple-red);
+      box-shadow: 0 0 0 3px rgba(250, 35, 59, 0.22);
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .search-input-box input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    .search-input-box input::placeholder {
+      color: rgba(235, 235, 245, 0.45);
+    }
+
+    .am-nav-group {
+      margin-bottom: 22px;
+    }
+
+    .am-nav-header {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: rgba(235, 235, 245, 0.4);
+      padding: 0 10px 6px;
+    }
+
+    .am-nav-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 8px 10px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .am-nav-item svg {
+      width: 18px;
+      height: 18px;
+      color: var(--apple-red);
+      flex-shrink: 0;
+    }
+
+    .am-nav-item:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+    }
+
+    .am-nav-item.active {
+      background: var(--apple-red);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .am-nav-item.active svg {
+      color: #fff;
+    }
+
+    /* =========================================================================
+       APPLE MUSIC TOP STICKY LCD BAR (beta.music.apple.com)
+       ========================================================================= */
+    .am-topbar {
+      position: fixed;
+      top: 0;
+      left: var(--sidebar-w);
+      right: 0;
+      height: var(--top-bar-h);
+      background: rgba(31, 31, 31, 0.86);
+      backdrop-filter: blur(40px) saturate(180%);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 95;
+      gap: 16px;
+    }
+
+    .am-transport {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 160px;
+    }
+
+    .am-transport-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.78);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      transition: color 0.15s, transform 0.1s;
+    }
+
+    .am-transport-btn:hover {
+      color: #fff;
+      transform: scale(1.06);
+    }
+
+    .am-play-main {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      color: #fff;
+    }
+
+    /* CENTER LCD DISPLAY */
+    .am-lcd {
+      flex: 1;
+      max-width: 620px;
+      height: 44px;
+      background: var(--bg-lcd);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    .player-thumb {
+      width: 44px;
+      height: 44px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #18181a;
+    }
+
+    .am-lcd-body {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 2px 12px 6px;
+      position: relative;
+    }
+
+    .am-lcd-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .am-lcd-titles {
+      flex: 1;
+      min-width: 0;
+      text-align: center;
+    }
+
+    #player-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+
+    #player-artist {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+
+    .am-lcd-badges {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* SCRUBBABLE TIMELINE INSIDE LCD */
+    .am-lcd-timeline {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 12px;
+      display: flex;
+      align-items: flex-end;
+      cursor: pointer;
+    }
+
+    .am-time-lbl {
+      position: absolute;
+      bottom: 4px;
+      font-size: 9.5px;
+      font-weight: 600;
+      color: rgba(235, 235, 245, 0.5);
+      pointer-events: none;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #player-curr-time { left: 8px; }
+    #player-dur-time { right: 8px; }
+
+    .progress-bar-wrap {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.14);
+      position: relative;
+      cursor: pointer;
+      transition: height 0.12s ease;
+    }
+
+    .am-lcd:hover .progress-bar-wrap,
+    .progress-bar-wrap:hover {
+      height: 6px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: #ffffff;
+      width: 0%;
+      position: relative;
+      pointer-events: none;
+    }
+
+    .progress-bar-fill::after {
+      content: "";
+      position: absolute;
+      right: -5px;
+      top: 50%;
+      transform: translateY(-50%) scale(0);
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+      transition: transform 0.12s ease;
+    }
+
+    .am-lcd:hover .progress-bar-fill::after {
+      transform: translateY(-50%) scale(1);
+    }
+
+    .am-topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .am-vol-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+    }
+
+    .am-vol-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 72px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.22);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .am-vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    /* =========================================================================
+       MAIN WORKSPACE CONTENT AREA (https://beta.music.apple.com/us/new)
+       ========================================================================= */
+    .am-main {
+      margin-left: var(--sidebar-w);
+      margin-top: var(--top-bar-h);
+      flex: 1;
+      padding: 28px 38px 90px;
+      max-width: calc(100vw - var(--sidebar-w));
+    }
+
+    .am-page-title-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 22px;
+    }
+
+    .am-page-title {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -0.028em;
+      color: #fff;
+    }
+
+    /* EDITORIAL HERO CARDS ROW (Apple Music /us/new Featured) */
+    .am-featured-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 20px;
+      margin-bottom: 34px;
+    }
+
+    .am-hero-card {
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      group: true;
+    }
+
+    .am-hero-kicker {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .am-hero-heading {
+      font-size: 17px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .am-hero-sub {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .am-hero-banner {
+      position: relative;
+      height: 215px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #2a2a2d;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .am-hero-banner img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.35s ease;
+    }
+
+    .am-hero-card:hover .am-hero-banner img {
+      transform: scale(1.03);
+    }
+
+    .am-hero-banner-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.82) 100%);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 16px;
+    }
+
+    .am-hero-play-fab {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(15px);
+      border: none;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .am-hero-play-fab:hover {
+      background: var(--apple-red);
+      transform: scale(1.08);
+    }
+
+    /* AUTOCOMPLETE SUGGESTIONS DROPDOWN */
+    .suggest-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      width: 320px;
+      background: rgba(38, 38, 41, 0.98);
+      backdrop-filter: blur(30px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      overflow: hidden;
+      z-index: 200;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.7);
+      display: none;
+    }
+
+    .suggest-item {
+      padding: 9px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      transition: background 0.15s;
+    }
+
+    .suggest-item:hover {
+      background: var(--apple-red);
+    }
+
+    .suggest-thumb {
+      width: 34px;
+      height: 34px;
+      border-radius: 5px;
+      object-fit: cover;
+    }
+
+    .suggest-info { flex: 1; min-width: 0; }
+    .suggest-title { font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .suggest-sub { font-size: 11px; color: rgba(255,255,255,0.7); }
+
+    /* PROVIDER PILLS BAR */
+    .tabs-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 24px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .tab-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .tab-btn.active {
+      color: #fff;
+      background: var(--apple-red);
+      border-color: var(--apple-red);
+    }
+
+    /* TOP ARTIST BANNER */
+    .top-hero-card {
+      background: linear-gradient(135deg, #2b2b2e, #1c1c1e);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      margin-bottom: 28px;
+    }
+
+    .top-hero-img {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .top-hero-info h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 4px; }
+    .top-hero-info p { color: var(--text-muted); font-size: 13.5px; }
+    .top-tag {
+      display: inline-block;
+      background: var(--apple-red);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    /* SECTION HEADERS & APPLE MUSIC TRACK CARDS */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tracks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 12px 20px;
+    }
+
+    .track-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .track-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .track-main-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .track-cover-wrap {
+      width: 56px;
+      height: 56px;
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+
+    .track-cover-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .play-overlay-btn {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+      cursor: pointer;
+      border: none;
+      color: #fff;
+    }
+
+    .track-cover-wrap:hover .play-overlay-btn { opacity: 1; }
+    .play-overlay-btn svg { width: 24px; height: 24px; fill: #fff; }
+
+    .track-info { flex: 1; min-width: 0; }
+    .track-title {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .track-artist {
+      font-size: 13px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-meta-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 5px;
+    }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .badge-apple { background: rgba(250, 35, 59, 0.18); color: #ff6b7b; }
+    .badge-dolby { background: rgba(167, 139, 250, 0.18); color: #c4b5fd; }
+    .badge-lossless { background: rgba(56, 189, 248, 0.16); color: #7dd3fc; }
+    .badge-explicit { background: rgba(255, 255, 255, 0.14); color: #d1d5db; }
+    .badge-isrc { background: rgba(255, 255, 255, 0.06); color: rgba(235,235,245,0.55); font-family: monospace; }
+
+    .track-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .btn-action {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .btn-action:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .btn-enrich {
+      background: rgba(250, 35, 59, 0.16);
+      border-color: rgba(250, 35, 59, 0.35);
+      color: #ff6b7b;
+    }
+
+    .search-btn {
+      background: var(--apple-red);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+
+    .search-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+
+    /* MODALS */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(20px);
+      z-index: 300;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-card {
+      background: #242426;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      max-width: 740px;
+      width: 100%;
+      max-height: 86vh;
+      overflow-y: auto;
+      padding: 24px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      gap: 16px;
+    }
+
+    .modal-close-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .meta-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+    .meta-table th, .meta-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+    .meta-table th { color: var(--text-muted); width: 32%; font-weight: 600; }
+    .meta-table td { color: #f3f4f6; word-break: break-all; }
+
+    pre.json-view {
+      background: #161618;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: #7dd3fc;
+      overflow-x: auto;
+      margin-top: 14px;
+      max-height: 260px;
+    }
+
+    .ext-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .ext-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .loading-spinner {
+      border: 3px solid rgba(255, 255, 255, 0.12);
+      border-top-color: var(--apple-red);
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 0.75s linear infinite;
+      margin: 30px auto;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 900px) {
+      :root { --sidebar-w: 0px; }
+      .am-sidebar { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =========================================================================
+       LEFT SIDEBAR (Apple Music Web https://beta.music.apple.com/us/new)
+       ========================================================================= -->
+  <aside class="am-sidebar">
+    <div class="am-logo-row">
+      <a href="#" class="am-brand" onclick="switchMainView('new')">
+        <svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.33c.64-.78 1.08-1.86.96-2.94-.93.04-2.06.62-2.72 1.4-.58.68-1.1 1.79-.96 2.84 1.04.08 2.08-.52 2.72-1.3z"/></svg>
+        <span>Music</span>
+        <span style="font-size: 10px; background: rgba(250,35,59,0.2); color: #ff6b7b; padding: 2px 6px; border-radius: 4px; font-weight: 700;">WaveX</span>
+      </a>
+    </div>
+
+    <!-- SIDEBAR SEARCH -->
+    <div class="am-sidebar-search">
+      <form id="search-form" onsubmit="event.preventDefault(); switchMainView('new'); performSearch();">
+        <div class="search-input-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(235,235,245,0.5)" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="search-input" placeholder="Search" autocomplete="off">
+        </div>
+      </form>
+      <div id="suggest-dropdown" class="suggest-dropdown"></div>
+    </div>
+
+    <!-- PRIMARY NAVIGATION -->
+    <div class="am-nav-group">
+      <button class="am-nav-item" id="nav-home" onclick="switchMainView('new'); quickHeroSearch('The Weeknd')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        <span>Home</span>
+      </button>
+      <button class="am-nav-item active" id="nav-new" onclick="switchMainView('new')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>
+        <span>New</span>
+      </button>
+      <button class="am-nav-item" id="nav-fast" onclick="playFastStreamingCurrentOrPrompt()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+        <span>Fast Stream (320 kbps)</span>
+      </button>
+      <button class="am-nav-item" id="nav-docs" onclick="openApiDocsModal()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+        <span>API Docs (Completa)</span>
+      </button>
+    </div>
+
+    <!-- CATALOG SOURCES -->
+    <div class="am-nav-group">
+      <div class="am-nav-header">Catálogos & Hi-Res</div>
+      <button class="am-nav-item" onclick="setMode('octave-enriched')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+        <span>Apple Music + Octave</span>
+      </button>
+      <button class="am-nav-item" onclick="setMode('qobuz-web')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>
+        <span>Qobuz 24-Bit Hi-Res</span>
+      </button>
+      <button class="am-nav-item" onclick="setMode('tidal-web')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 6L8 10l4 4 4-4-4-4zm-6 6l-4 4 4 4 4-4-4-4zm12 0l-4 4 4 4 4-4-4-4z"/></svg>
+        <span>TIDAL Max</span>
+      </button>
+      <button class="am-nav-item" onclick="setMode('ytmusic-spotiflac')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+        <span>YouTube Music</span>
+      </button>
+      <button class="am-nav-item" onclick="setMode('spotify-web')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+        <span>Spotify Web</span>
+      </button>
+    </div>
+
+    <!-- TOOLS -->
+    <div class="am-nav-group" style="margin-top: auto;">
+      <div class="am-nav-header">Sistema</div>
+      <button class="am-nav-item" onclick="openAlbumMatcherTool('238876612')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z"/></svg>
+        <span>Álbum Matcher (UPC)</span>
+      </button>
+      <button class="am-nav-item" onclick="openExtensionsModal()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5z"/></svg>
+        <span>Extensiones (<span id="installed-count">12</span>)</span>
+      </button>
+      <button class="am-nav-item" id="btn-auto-update" onclick="triggerAutoUpdate()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+        <span id="update-btn-label">Auto-Actualizar</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- =========================================================================
+       TOP STICKY APPLE MUSIC LCD PLAYER BAR (player-bar)
+       ========================================================================= -->
+  <header class="am-topbar" id="player-bar">
+    <!-- Left Playback Controls -->
+    <div class="am-transport">
+      <button class="am-transport-btn" onclick="playPrevInQueue()" title="Anterior / Reiniciar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+      </button>
+      <button class="am-transport-btn am-play-main" id="player-toggle-btn" onclick="togglePlay()" title="Reproducir / Pausar">
+        <svg id="play-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <svg id="pause-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+      </button>
+      <button class="am-transport-btn" onclick="playNextInQueue()" title="Siguiente">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+      </button>
+    </div>
+
+    <!-- Center Apple Music LCD Module -->
+    <div class="am-lcd">
+      <img id="player-thumb" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 24 24' fill='%23555'%3E%3Cpath d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/%3E%3C/svg%3E" alt="cover" class="player-thumb">
+      <div class="am-lcd-body">
+        <div class="am-lcd-top">
+          <div id="player-specs-badge" style="font-size: 9.5px; color: #7dd3fc; font-weight: 700; white-space: nowrap;">LOSSLESS</div>
+          <div class="am-lcd-titles">
+            <div id="player-title">Apple Music · WaveX</div>
+            <div id="player-artist">Selecciona una canción para reproducir en Hi-Res o 320 kbps</div>
+          </div>
+          <div class="am-lcd-badges">
+            <div id="player-badge" style="font-size: 9.5px; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: #d1d5db; font-weight: 700; text-transform: uppercase;">LISTO</div>
+          </div>
+        </div>
+
+        <!-- Scrubbable Seek Bar -->
+        <div class="am-lcd-timeline" id="player-timeline-box">
+          <span class="am-time-lbl" id="player-curr-time">0:00</span>
+          <div class="progress-bar-wrap" id="progress-bar-wrap" onclick="seekAudio(event)">
+            <div class="progress-bar-fill" id="player-progress"></div>
+          </div>
+          <span class="am-time-lbl" id="player-dur-time">--:--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Controls: Visualizer, Lyrics, Volume, API Docs -->
+    <div class="am-topbar-right">
+      <canvas id="audio-visualizer" width="68" height="26" style="border-radius: 4px; background: rgba(255,255,255,0.03);"></canvas>
+      <button class="btn-action" style="padding: 5px 9px;" onclick="openLyricsModal()" title="Letras Sincronizadas (.LRC)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+        <span>Letras</span>
+      </button>
+      <div class="am-vol-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+        <input type="range" class="am-vol-slider" min="0" max="1" step="0.02" value="1" oninput="audio.volume = this.value">
+      </div>
+      <button class="btn-action" style="background: var(--apple-red); border-color: var(--apple-red);" onclick="openApiDocsModal()">
+        <span>API Docs</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       MAIN APPLE MUSIC "/us/new" CONTENT AREA
+       ========================================================================= -->
+  <main class="am-main">
+    <div class="am-page-title-row">
+      <h1 class="am-page-title">New</h1>
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <!-- Global Streaming Preference Selector -->
+        <div style="display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border); padding: 5px 12px; border-radius: 999px;">
+          <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Streaming:</span>
+          <select id="global-stream-pref-select" onchange="setGlobalStreamPreference(this.value)" style="background: transparent; border: none; color: #fff; font-size: 12.5px; font-weight: 600; outline: none; cursor: pointer;">
+            <option value="fixed-qobuz" style="background: #1c1c1e;">💎 Fijo: Qobuz (24-Bit Max Hi-Res FLAC)</option>
+            <option value="fixed-ytm320" style="background: #1c1c1e;">⚡ Fijo: Fast Streaming 320 kbps (YouTube Music MP3)</option>
+            <option value="fixed-tidal" style="background: #1c1c1e;">🌊 Fijo: TIDAL (HiRes FLAC 24-bit)</option>
+            <option value="fixed-atmos" style="background: #1c1c1e;">🌌 Fijo: Dolby Atmos (Amazon / Tidal Spatial)</option>
+            <option value="fixed-deezer" style="background: #1c1c1e;">🟠 Fijo: Deezer (FLAC HiFi)</option>
+            <option value="ask-always" style="background: #1c1c1e;">⚙️ Preguntarme siempre (Elegir libremente)</option>
+          </select>
+        </div>
+        <button class="btn-action" onclick="playAllInQueue()">
+          <span>▶️ Reproducir Todo</span>
+        </button>
+        <button class="btn-action" style="color: #34d399; border-color: rgba(16, 185, 129, 0.35);" onclick="startBatchDownloadCurrentResults()">
+          <span>📦 Descargar Lote (.ZIP)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- APPLE MUSIC "/us/new" FEATURED EDITORIAL CARDS -->
+    <section class="am-featured-row">
+      <div class="am-hero-card" onclick="quickHeroSearch('Doja Cat')">
+        <div class="am-hero-kicker">FEATURED HI-RES LOSSLESS · 24-BIT/192KHZ</div>
+        <div class="am-hero-heading">Doja Cat: Scarlet & Planet Her</div>
+        <div class="am-hero-sub">Apple Music · Dolby Atmos & Qobuz Studio Master</div>
+        <div class="am-hero-banner" style="background: linear-gradient(135deg, #7f1d1d, #be123c, #1e1b4b);">
+          <div class="am-hero-banner-overlay">
+            <div>
+              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: rgba(255,255,255,0.75);">Lossless & Spatial Audio</div>
+              <div style="font-size: 20px; font-weight: 800; color: #fff;">Explorar Catálogo de Doja Cat</div>
+            </div>
+            <button class="am-hero-play-fab" onclick="event.stopPropagation(); playFastStreamDirect('Paint The Town Red', 'Doja Cat')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="am-hero-card" onclick="playFastStreamDirect('Espresso', 'Sabrina Carpenter')">
+        <div class="am-hero-kicker">NUEVO ENDPOINT · /fast-streaming</div>
+        <div class="am-hero-heading">YouTube Music Direct 320 kbps</div>
+        <div class="am-hero-sub">Audio Oficial (ATV) con Seek Instantáneo HTTP 206</div>
+        <div class="am-hero-banner" style="background: linear-gradient(135deg, #0f172a, #0369a1, #ec4899);">
+          <div class="am-hero-banner-overlay">
+            <div>
+              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #7dd3fc;">/fast-streaming?q=...</div>
+              <div style="font-size: 20px; font-weight: 800; color: #fff;">Probar Fast Streaming 320 kbps</div>
+            </div>
+            <button class="am-hero-play-fab">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="am-hero-card" onclick="openApiDocsModal()">
+        <div class="am-hero-kicker">DEVELOPER REFERENCE · API V2.0</div>
+        <div class="am-hero-heading">Documentación Completa de la API</div>
+        <div class="am-hero-sub">Streaming, Descargas, Búsqueda, LRC, Specs y Lotes ZIP</div>
+        <div class="am-hero-banner" style="background: linear-gradient(135deg, #18181b, #312e81, #4c1d95);">
+          <div class="am-hero-banner-overlay">
+            <div>
+              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #c4b5fd;">REST + SSE + HTTP 206 Range</div>
+              <div style="font-size: 20px; font-weight: 800; color: #fff;">Ver Endpoints y Ejemplos</div>
+            </div>
+            <button class="am-hero-play-fab">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CATALOG FILTER PILLS -->
+    <div class="tabs-bar">
+      <button class="tab-btn active" onclick="setMode('octave-enriched')">Apple Music + Octave</button>
+      <button class="tab-btn" onclick="setMode('qobuz-web')">Qobuz Hi-Res</button>
+      <button class="tab-btn" onclick="setMode('apple-music')">Apple Music Nativo</button>
+      <button class="tab-btn" onclick="setMode('ytmusic-spotiflac')">YouTube Music</button>
+      <button class="tab-btn" onclick="setMode('tidal-web')">TIDAL</button>
+      <button class="tab-btn" onclick="setMode('deezer')">Deezer</button>
+      <button class="tab-btn" onclick="setMode('spotify-web')">Spotify Web</button>
+      <button class="tab-btn" onclick="setMode('soundcloud')">SoundCloud</button>
+    </div>
+
+    <!-- TOP HERO SHOWCASE (ARTIST / ALBUM) -->
+    <div id="top-hero-container"></div>
+
+    <!-- TRACKS SECTION -->
+    <section>
+      <div class="section-header">
+        <h3 class="section-title">
+          <span>Latest Songs & Search Results</span>
+          <span id="results-count" style="font-size: 13px; color: var(--text-muted); font-weight: 500;"></span>
+        </h3>
+      </div>
+
+      <div id="batch-status-banner" style="display: none; margin-bottom: 18px;"></div>
+      <div id="tracks-grid" class="tracks-grid"></div>
+      <div id="loading-indicator" class="loading-spinner" style="display: none;"></div>
+    </section>
+  </main>
+
+  <!-- METADATA INSPECTOR MODAL -->
+  <div id="meta-modal" class="modal-overlay" onclick="closeModalOnBackdrop(event)">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-title" style="font-size: 22px; font-weight: 800;">Metadatos de la Canción</h2>
+          <p id="modal-subtitle" style="color: var(--apple-pink); font-size: 13px; font-weight: 600;"></p>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal()">✕</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- EXTENSIONS STATUS MODAL -->
+  <div id="ext-modal" class="modal-overlay" onclick="closeExtModalOnBackdrop(event)">
+    <div class="modal-card" style="max-width: 800px;">
+      <div class="modal-header">
+        <div>
+          <h2 style="font-size: 22px; font-weight: 800;">Extensiones SpotiFLAC / Mornye</h2>
+          <p style="color: var(--text-muted); font-size: 13px;">Extensiones modulares (.sflx) cargadas en el runtime de doble plano</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeExtModal()">✕</button>
+      </div>
+      <div id="ext-list" class="ext-grid"></div>
+    </div>
+  </div>
+
+  <!-- ALBUM MATCHER MODAL -->
+  <div id="album-modal" class="modal-overlay" onclick="closeAlbumModalOnBackdrop(event)">
+    <div class="modal-card" style="max-width: 860px;">
+      <div class="modal-header">
+        <div>
+          <h2 style="font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px;">
+            <span>Comparador de Álbumes</span>
+            <span style="font-size: 12px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 3px 9px; border-radius: 999px;">Deezer ↔ Apple Music</span>
+          </h2>
+          <p style="color: var(--text-muted); font-size: 13px;">Vinculación cruzada de IDs mediante UPC e ISRCs</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeAlbumModal()">✕</button>
+      </div>
+      <div style="margin-bottom: 18px; display: flex; gap: 10px;">
+        <input type="text" id="album-matcher-input" placeholder="ID de Álbum Octave/Deezer (ej. 238876612)..." style="flex: 1; background: #161618; border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; color: #fff; font-family: inherit;">
+        <button class="search-btn" onclick="matchAlbumFromInput()">Comparar</button>
+      </div>
+      <div id="album-match-body"></div>
+    </div>
+  </div>
+
+  <!-- DOWNLOAD & STREAMING MODAL -->
+  <div id="download-modal" class="modal-overlay" onclick="closeDownloadModalOnBackdrop(event)">
+    <div class="modal-card" style="max-width: 760px;">
+      <div class="modal-header">
+        <div>
+          <h2 style="font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px;">
+            <span>Streaming & Descarga Hi-Res</span>
+            <span style="font-size: 11px; background: rgba(250, 35, 59, 0.2); color: #ff6b7b; padding: 3px 9px; border-radius: 999px;">Multi-Proveedor</span>
+          </h2>
+          <p style="color: var(--text-muted); font-size: 13px;">Elige el proveedor (Qobuz, Tidal, Amazon Atmos, YouTube Music 320 kbps) y calidad</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeDownloadModal()">✕</button>
+      </div>
+      <div id="download-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- SYNCED LYRICS MODAL -->
+  <div id="lyrics-modal" class="modal-overlay" onclick="if(event.target.id==='lyrics-modal') closeLyricsModal()">
+    <div class="modal-card" style="max-width: 660px; max-height: 82vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div>
+          <h2 id="lyrics-modal-title" style="font-size: 22px; font-weight: 800;">🎤 Letras Sincronizadas (.LRC)</h2>
+          <p id="lyrics-modal-artist" style="color: var(--apple-pink); font-size: 13px; font-weight: 600;"></p>
+        </div>
+        <button class="modal-close-btn" onclick="closeLyricsModal()">✕</button>
+      </div>
+      <div id="lyrics-container" style="overflow-y: auto; flex: 1; padding: 16px; border-radius: 12px; background: rgba(0,0,0,0.35); text-align: center; line-height: 2.1; font-size: 16px;"></div>
+    </div>
+  </div>
+
+  <!-- FULL API DOCUMENTATION MODAL -->
+  <div id="api-docs-modal" class="modal-overlay" onclick="if(event.target.id==='api-docs-modal') closeApiDocsModal()">
+    <div class="modal-card" style="max-width: 980px; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div>
+          <h2 style="font-size: 22px; font-weight: 800;">📚 Documentación Completa de la API de WaveX v2.0</h2>
+          <p style="color: var(--text-muted); font-size: 13px;">Referencia interactiva de todos los endpoints: <code>/fast-streaming</code> (320 kbps), Streaming Live HTTP 206, Descargas Hi-Res, Búsqueda, LRC y Lotes ZIP</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeApiDocsModal()">✕</button>
+      </div>
+      <div id="api-docs-body" style="overflow-y: auto; flex: 1; padding-right: 6px; font-size: 13.5px; line-height: 1.6;"></div>
+    </div>
+  </div>
+
+  <!-- AUDIO ELEMENT -->
+  <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
+
+  <script>
+    let currentMode = 'octave-enriched';
+    let currentResults = [];
+    const audio = document.getElementById('global-audio');
+    let suggestTimeout = null;
+
+    // Load active extensions on start
+    async function init() {
+      updatePrefLabels();
+      try {
+        const res = await fetch('/installed');
+        const data = await res.json();
+        if (data.installed) {
+          document.getElementById('installed-count').textContent = data.installed.length;
+        }
+      } catch (e) {
+        console.error('Failed to load extensions', e);
+      }
+
+      // Run initial search for Doja Cat as demonstration
+      document.getElementById('search-input').value = 'Doja Cat';
+      performSearch();
+    }
+
+    // High-speed client-side caches for near-instant searches and autocompletion
+    const clientQueryCache = new Map();
+    const clientSuggestCache = new Map();
+
+    // Auto-suggest listener
+    const searchInput = document.getElementById('search-input');
+    const suggestDropdown = document.getElementById('suggest-dropdown');
+
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value.trim();
+      clearTimeout(suggestTimeout);
+      if (q.length < 2) {
+        suggestDropdown.style.display = 'none';
+        return;
+      }
+
+      const cachedSuggest = clientSuggestCache.get(q.toLowerCase());
+      if (cachedSuggest) {
+        renderSuggestions(cachedSuggest);
+        return;
+      }
+
+      suggestTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/octave/suggest?q=${encodeURIComponent(q)}&limit=6`);
+          if (!res.ok) return;
+          const data = await res.json();
+          clientSuggestCache.set(q.toLowerCase(), data);
+          renderSuggestions(data);
+        } catch (_) {}
+      }, 100);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!searchInput.contains(e.target) && !suggestDropdown.contains(e.target)) {
+        suggestDropdown.style.display = 'none';
+      }
+    });
+
+    function renderSuggestions(data) {
+      if (!data || (!data.tracks?.length && !data.queries?.length && !data.artists?.length)) {
+        suggestDropdown.style.display = 'none';
+        return;
+      }
+
+      let html = '';
+
+      if (data.top?.item) {
+        const item = data.top.item;
+        const img = item.cover_small || item.picture_small || '';
+        html += `
+          <div class="suggest-item" onclick="selectSuggestion('${escapeQuotes(item.title || item.name)}')">
+            ${img ? `<img src="${img}" class="suggest-thumb">` : ''}
+            <div class="suggest-info">
+              <div class="suggest-title">${item.title || item.name}</div>
+              <div class="suggest-sub">⭐ Mejor Resultado (${data.top.type})</div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (data.tracks && data.tracks.length) {
+        data.tracks.slice(0, 4).forEach(t => {
+          html += `
+            <div class="suggest-item" onclick="selectSuggestion('${escapeQuotes(t.title)}')">
+              <img src="${t.album?.cover_small || ''}" class="suggest-thumb">
+              <div class="suggest-info">
+                <div class="suggest-title">${t.title}</div>
+                <div class="suggest-sub">${t.artist?.name || ''}</div>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      suggestDropdown.innerHTML = html;
+      suggestDropdown.style.display = 'block';
+    }
+
+    function selectSuggestion(query) {
+      searchInput.value = query;
+      suggestDropdown.style.display = 'none';
+      performSearch();
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      performSearch();
+    }
+
+    async function performSearch() {
+      const q = searchInput.value.trim();
+      if (!q) return;
+
+      suggestDropdown.style.display = 'none';
+      const grid = document.getElementById('tracks-grid');
+      const loader = document.getElementById('loading-indicator');
+      const topHero = document.getElementById('top-hero-container');
+      const countLabel = document.getElementById('results-count');
+
+      const cacheKey = `${currentMode}:${q.toLowerCase()}`;
+      if (clientQueryCache.has(cacheKey)) {
+        const cached = clientQueryCache.get(cacheKey);
+        loader.style.display = 'none';
+        if (currentMode === 'octave-enriched') {
+          renderOctaveResults(cached);
+        } else {
+          renderProviderResults(cached.result || cached);
+        }
+        return;
+      }
+
+      grid.innerHTML = '';
+      topHero.innerHTML = '';
+      countLabel.textContent = '';
+      loader.style.display = 'block';
+
+      try {
+        if (currentMode === 'octave-enriched') {
+          // Instant search via Octave with fast background enrichment
+          const res = await fetch(`/api/octave/search-enriched?q=${encodeURIComponent(q)}&limit=24`);
+          const data = await res.json();
+          clientQueryCache.set(cacheKey, data);
+          renderOctaveResults(data);
+        } else {
+          // Search via specific extension provider (spotify-web, apple-music, deezer, etc.)
+          const res = await fetch(`/api/${currentMode}/search?q=${encodeURIComponent(q)}&limit=24`);
+          const data = await res.json();
+          clientQueryCache.set(cacheKey, data);
+          renderProviderResults(data.result);
+        }
+      } catch (err) {
+        grid.innerHTML = `<div style="color: #f87171; padding: 20px;">Error al realizar la búsqueda: ${err.message}</div>`;
+      } finally {
+        loader.style.display = 'none';
+      }
+    }
+
+    function renderOctaveResults(data) {
+      const grid = document.getElementById('tracks-grid');
+      const topHero = document.getElementById('top-hero-container');
+      const countLabel = document.getElementById('results-count');
+
+      if (!data) {
+        grid.innerHTML = '<div style="color: #94a3b8;">No se encontraron resultados.</div>';
+        return;
+      }
+
+      // Render Top Hero (Artist or Album)
+      if (data.top?.item) {
+        const item = data.top.item;
+        const img = item.picture_big || item.cover_big || '';
+        const fans = item.nbFan ? `${(item.nbFan).toLocaleString()} fans` : '';
+        topHero.innerHTML = `
+          <div class="top-hero-card">
+            ${img ? `<img src="${img}" class="top-hero-img">` : ''}
+            <div class="top-hero-info">
+              <span class="top-tag">${data.top.type}</span>
+              <h2>${item.name || item.title}</h2>
+              <p>${fans ? `Artistas populares • ${fans}` : 'Resultado Principal'}</p>
+            </div>
+          </div>
+        `;
+      }
+
+      const tracks = data.tracks || [];
+      countLabel.textContent = `${tracks.length} canciones`;
+
+      if (!tracks.length) {
+        grid.innerHTML = '<div style="color: #94a3b8;">No se encontraron canciones.</div>';
+        return;
+      }
+
+      currentResults = tracks;
+
+      grid.innerHTML = tracks.map((track, idx) => {
+        const apple = track.apple_music;
+        const cover = apple?.cover_url || track.album?.cover_big || track.album?.cover_medium || '';
+        const artistName = typeof track.artist === 'string' ? track.artist : (track.artist?.name || '');
+        const durationMin = track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '';
+        const preview = track.previewUrl || apple?.preview_url || '';
+
+        return `
+          <div class="track-card" onmouseenter="prefetchTrack(${idx})">
+            <div class="track-main-row">
+              <div class="track-cover-wrap">
+                <img src="${cover}" class="track-cover-img" alt="cover">
+                <button class="play-overlay-btn" onclick="playDirectPreferredTrack(${idx})" title="Reproducir">
+                  <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+              </div>
+
+              <div class="track-info">
+                <div class="track-title" title="${track.title}">${track.title}</div>
+                <div class="track-artist">${artistName}</div>
+                <div class="track-meta-pills">
+                  ${apple ? `
+                    <span class="badge badge-apple">🍎 Apple Music</span>
+                    ${apple.audio_modes?.includes('DOLBY_ATMOS') ? `<span class="badge badge-dolby">Dolby Atmos</span>` : ''}
+                    ${apple.has_lyrics ? `<span class="badge badge-lossless">Letras</span>` : ''}
+                  ` : ''}
+                  ${track.isrc ? `<span class="badge badge-isrc">ISRC: ${track.isrc}</span>` : ''}
+                  ${track.explicit ? `<span class="badge badge-explicit">E</span>` : ''}
+                </div>
+              </div>
+            </div>
+
+            <div class="track-footer">
+              <span style="font-size: 12px; color: var(--text-muted);">${durationMin}</span>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button class="btn-action btn-pref-play" style="background: rgba(6, 182, 212, 0.18); border-color: rgba(6, 182, 212, 0.45); color: #38bdf8;" onclick="playDirectPreferredTrack(${idx})" title="Reproducir directo con calidad configurada">
+                  <span>▶ <span class="pref-label-dynamic">Hi-Res</span></span>
+                </button>
+                <button class="btn-action" style="background: rgba(250, 35, 59, 0.16); border-color: rgba(250, 35, 59, 0.4); color: #ff6b7b;" onclick="playFastStreamTrack(${idx})" title="Fast Streaming YouTube Music 320 kbps (/fast-streaming)">
+                  <span>⚡ 320k</span>
+                </button>
+                <button class="btn-action" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: #34d399;" onclick="openDownloadModal(${idx})" title="Elegir libremente proveedor (Qobuz, Tidal, Amazon Atmos, etc.) y calidad">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+                  <span>⚙️ Calidad / Proveedor</span>
+                </button>
+                <button class="btn-action" style="color: #c4b5fd; border-color: rgba(139, 92, 246, 0.35);" onclick="addToQueue(${idx})" title="Añadir a la cola de reproducción">
+                  <span>➕ Cola</span>
+                </button>
+                ${track.album?.id ? `
+                  <button class="btn-action" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);" onclick="openAlbumMatchModal('${track.album.id}')">
+                    <span>💿 UPC</span>
+                  </button>
+                ` : ''}
+                ${apple ? `
+                  <button class="btn-action" onclick="openAppleMetaModal(${idx})">
+                    <span>Info</span>
+                  </button>
+                ` : `
+                  <button class="btn-action btn-enrich" onclick="enrichTrackOnDemand(${idx})">
+                    <span>+Apple</span>
+                  </button>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderProviderResults(results) {
+      const grid = document.getElementById('tracks-grid');
+      const countLabel = document.getElementById('results-count');
+
+      if (!results || !results.length) {
+        grid.innerHTML = '<div style="color: #94a3b8;">No se encontraron resultados en este proveedor.</div>';
+        return;
+      }
+
+      currentResults = results;
+      countLabel.textContent = `${results.length} resultados`;
+
+      grid.innerHTML = results.map((item, idx) => {
+        const cover = item.cover_url || item.images || '';
+        const title = item.name || item.title || '';
+        const artist = item.artists || item.artist_name || '';
+
+        return `
+          <div class="track-card">
+            <div class="track-main-row">
+              <div class="track-cover-wrap">
+                <img src="${cover}" class="track-cover-img" alt="cover">
+                ${item.preview_url ? `
+                  <button class="play-overlay-btn" onclick="playPreview('${item.preview_url}', '${escapeQuotes(title)}', '${escapeQuotes(artist)}', '${cover}')">
+                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  </button>
+                ` : ''}
+              </div>
+              <div class="track-info">
+                <div class="track-title">${title}</div>
+                <div class="track-artist">${artist}</div>
+                <div class="track-meta-pills">
+                  <span class="badge badge-apple">${currentMode}</span>
+                  ${item.isrc ? `<span class="badge badge-isrc">${item.isrc}</span>` : ''}
+                </div>
+              </div>
+            </div>
+            <div class="track-footer">
+              <span style="font-size: 12px; color: var(--text-muted);">${item.album_name || ''}</span>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn-action" style="color: #34d399; border-color: rgba(16, 185, 129, 0.4);" onclick="openDownloadModal(${idx})">Descargar</button>
+                <button class="btn-action" onclick="openRawModal(${idx})">Ver JSON</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Modal view for Apple Music enriched metadata
+    function openAppleMetaModal(idx) {
+      const track = currentResults[idx];
+      const apple = track?.apple_music;
+      if (!apple) return;
+
+      document.getElementById('modal-title').textContent = apple.name || track.title;
+      document.getElementById('modal-subtitle').textContent = `${apple.artists} — ${apple.album_name || ''}`;
+
+      let rows = `
+        <table class="meta-table">
+          <tr><th>Apple Music Track ID</th><td>${apple.id || apple.apple_music_id || 'N/A'}</td></tr>
+          <tr><th>Apple Music Album ID</th><td>${apple.album_id || apple.apple_music_album_id || 'N/A'}</td></tr>
+          <tr><th>ISRC</th><td>${apple.isrc || track.isrc || 'N/A'}</td></tr>
+          <tr><th>UPC / Código de Barras</th><td>${apple.upc || 'N/A'}</td></tr>
+          <tr><th>Género(s)</th><td>${apple.genre || 'N/A'}</td></tr>
+          <tr><th>Compositor(es)</th><td>${apple.composer || 'N/A'}</td></tr>
+          <tr><th>Sello Discográfico</th><td>${apple.label || 'N/A'}</td></tr>
+          <tr><th>Copyright</th><td>${apple.copyright || 'N/A'}</td></tr>
+          <tr><th>Audio espacial</th><td>${apple.audio_modes || 'Estándar'}</td></tr>
+          <tr><th>Calidad</th><td>${apple.audio_quality || 'Lossless'}</td></tr>
+          <tr><th>Letras disponibles</th><td>${apple.has_lyrics ? 'Sí (Sincronizadas)' : 'No'}</td></tr>
+          <tr><th>Enlace Apple Music</th><td><a href="${apple.external_urls || apple.external_links?.apple_music_track}" target="_blank" style="color: #38bdf8;">Abrir en Apple Music ↗</a></td></tr>
+        </table>
+        <pre class="json-view">${JSON.stringify(apple, null, 2)}</pre>
+      `;
+
+      document.getElementById('modal-body').innerHTML = rows;
+      document.getElementById('meta-modal').style.display = 'flex';
+    }
+
+    function openRawModal(idx) {
+      const item = currentResults[idx];
+      document.getElementById('modal-title').textContent = item.name || item.title || 'Detalles';
+      document.getElementById('modal-subtitle').textContent = `Proveedor: ${currentMode}`;
+      document.getElementById('modal-body').innerHTML = `<pre class="json-view">${JSON.stringify(item, null, 2)}</pre>`;
+      document.getElementById('meta-modal').style.display = 'flex';
+    }
+
+    async function enrichTrackOnDemand(idx) {
+      const track = currentResults[idx];
+      const artistName = typeof track.artist === 'string' ? track.artist : (track.artist?.name || '');
+      const albumTitle = typeof track.album === 'string' ? track.album : (track.album?.title || '');
+
+      const btn = event.currentTarget;
+      btn.textContent = 'Enriqueciendo...';
+
+      try {
+        const res = await fetch('/api/enrich/apple-music', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: track.title,
+            artists: artistName,
+            album_name: albumTitle,
+            isrc: track.isrc || '',
+            duration: track.duration || 0,
+          })
+        });
+
+        const data = await res.json();
+        if (data.enriched) {
+          track.apple_music = data.enriched;
+          renderOctaveResults({ tracks: currentResults });
+          openAppleMetaModal(idx);
+        }
+      } catch (e) {
+        alert('Error enriqueciendo: ' + e.message);
+        btn.textContent = 'Enriquecer Apple';
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('meta-modal').style.display = 'none';
+    }
+
+    function closeModalOnBackdrop(e) {
+      if (e.target.id === 'meta-modal') closeModal();
+    }
+
+    // Extensions Modal
+    async function openExtensionsModal() {
+      const modal = document.getElementById('ext-modal');
+      const list = document.getElementById('ext-list');
+      modal.style.display = 'flex';
+      list.innerHTML = '<div class="loading-spinner"></div>';
+
+      try {
+        const res = await fetch('/installed');
+        const data = await res.json();
+        list.innerHTML = (data.installed || []).map(e => `
+          <div class="ext-card">
+            <h4>${e.manifest.displayName || e.manifest.name} <span style="font-size: 11px; color: var(--apple-pink);">v${e.manifest.version}</span></h4>
+            <p>${e.manifest.description}</p>
+            <div style="font-size: 11px; color: #64748b;">Tipos: ${e.manifest.type.join(', ')}</div>
+          </div>
+        `).join('');
+      } catch (err) {
+        list.innerHTML = `<div style="color: #f87171;">Error cargando extensiones: ${err.message}</div>`;
+      }
+    }
+
+    async function triggerAutoUpdate() {
+      const btn = document.getElementById('btn-auto-update');
+      const label = document.getElementById('update-btn-label');
+      if (label) label.textContent = 'Actualizando...';
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+
+      try {
+        const res = await fetch('/api/extensions/auto-update', { method: 'POST' });
+        const data = await res.json();
+        if (data.updates && data.updates.length > 0) {
+          alert(`✅ Se actualizaron ${data.updates.length} extensión(es): \n` + data.updates.map(u => `• ${u.id}: v${u.oldVersion} -> v${u.newVersion}`).join('\n'));
+        } else {
+          alert('✨ Todas las extensiones están actualizadas a la última versión del repositorio SpotiFLAC.');
+        }
+        const instRes = await fetch('/installed');
+        const instData = await instRes.json();
+        if (instData.installed) {
+          document.getElementById('installed-count').textContent = instData.installed.length;
+        }
+      } catch (err) {
+        alert('Error al actualizar extensiones: ' + err.message);
+      } finally {
+        if (label) label.textContent = 'Auto-Actualizar';
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+      }
+    }
+
+    function closeExtModal() {
+      document.getElementById('ext-modal').style.display = 'none';
+    }
+
+    function closeExtModalOnBackdrop(e) {
+      if (e.target.id === 'ext-modal') closeExtModal();
+    }
+
+    // ALBUM MATCHER LOGIC
+    function openAlbumMatcherTool(defaultId = '238876612') {
+      document.getElementById('album-matcher-input').value = defaultId;
+      document.getElementById('album-modal').style.display = 'flex';
+      matchAlbum(defaultId);
+    }
+
+    function openAlbumMatchModal(albumId) {
+      if (!albumId) return;
+      document.getElementById('album-matcher-input').value = albumId;
+      document.getElementById('album-modal').style.display = 'flex';
+      matchAlbum(albumId);
+    }
+
+    function matchAlbumFromInput() {
+      const val = document.getElementById('album-matcher-input').value.trim();
+      const match = val.match(/(\d+)/);
+      if (match) matchAlbum(match[1]);
+      else alert('Por favor ingresa un ID numérico de álbum');
+    }
+
+    async function matchAlbum(albumId) {
+      const body = document.getElementById('album-match-body');
+      body.innerHTML = '<div class="loading-spinner"></div>';
+
+      try {
+        const res = await fetch(`/api/match/album/${albumId}`);
+        const data = await res.json();
+
+        if (!data.matched) {
+          body.innerHTML = `
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 20px; border-radius: 14px; color: #fca5a5;">
+              <h3 style="margin-bottom: 8px;">No se encontró coincidencia directa</h3>
+              <p style="font-size: 14px;">El álbum de Deezer/Octave (ID: ${albumId}) no tiene un UPC registrado o no coincidió en el catálogo de Apple Music.</p>
+            </div>
+          `;
+          return;
+        }
+
+        const isrcRows = (data.sampleIsrcMatches || []).map(m => `
+          <tr>
+            <td><code>${m.isrc}</code></td>
+            <td>${m.title}</td>
+            <td><code>${m.appleTrackId}</code></td>
+            <td><span class="badge badge-apple">Perteneciente al Álbum Apple: ${m.appleAlbumId}</span></td>
+          </tr>
+        `).join('');
+
+        body.innerHTML = `
+          <!-- COMPARISON HERO GRID -->
+          <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: center; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 18px; padding: 24px; margin-bottom: 24px;">
+            <!-- DEEZER / OCTAVE SIDE -->
+            <div style="text-align: center;">
+              <span class="badge badge-lossless" style="margin-bottom: 10px;">Octave / Deezer</span>
+              <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 4px;">${data.deezer.title}</h3>
+              <div style="color: var(--text-muted); font-size: 14px; margin-bottom: 12px;">${data.deezer.artist}</div>
+              <div style="font-size: 13px; font-family: monospace; color: #38bdf8; margin-bottom: 4px;">ID: ${data.deezer.id}</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">${data.deezer.trackCount} Canciones</div>
+              <a href="${data.deezer.url}" target="_blank" class="btn-action" style="display: inline-flex; justify-content: center; font-size: 12px;">Abrir Deezer ↗</a>
+            </div>
+
+            <!-- MATCH PILL -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div style="width: 50px; height: 50px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; display: flex; align-items: center; justify-content: center; color: #34d399;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </div>
+              <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-weight: 800;">${data.confidence}% MATCH</span>
+              <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Estrategia: ${data.matchStrategy}</span>
+            </div>
+
+            <!-- APPLE MUSIC SIDE -->
+            <div style="text-align: center;">
+              <span class="badge badge-apple" style="margin-bottom: 10px;">Apple Music</span>
+              <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 4px;">${data.apple.title}</h3>
+              <div style="color: var(--text-muted); font-size: 14px; margin-bottom: 12px;">${data.apple.artist}</div>
+              <div style="font-size: 13px; font-family: monospace; color: #fc3c44; margin-bottom: 4px;">ID: ${data.apple.id}</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">${data.apple.trackCount} Canciones</div>
+              <a href="${data.apple.url}" target="_blank" class="btn-action btn-enrich" style="display: inline-flex; justify-content: center; font-size: 12px;">Abrir Apple Music ↗</a>
+            </div>
+          </div>
+
+          <!-- UPC CODE OF IDENTIFICATION -->
+          <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Código de Barras Universal (UPC / EAN) Coincidente</div>
+              <div style="font-size: 18px; font-family: monospace; color: #facc15; font-weight: 700;">${data.deezer.upc || 'N/A'}</div>
+            </div>
+            <span class="badge badge-lossless" style="padding: 6px 12px; font-size: 12px;">Validado en ambos catálogos</span>
+          </div>
+
+          <!-- TRACK ISRC VERIFICATION TABLE -->
+          ${data.sampleIsrcMatches?.length ? `
+            <h4 style="font-size: 15px; margin-bottom: 10px; color: #e2e8f0;">Verificación por ISRCs de Pistas</h4>
+            <table class="meta-table" style="margin-bottom: 20px;">
+              <thead>
+                <tr>
+                  <th>ISRC</th>
+                  <th>Canción</th>
+                  <th>Apple Track ID</th>
+                  <th>Álbum Apple Vinculado</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${isrcRows}
+              </tbody>
+            </table>
+          ` : ''}
+
+          <pre class="json-view">${JSON.stringify(data, null, 2)}</pre>
+        `;
+      } catch (err) {
+        body.innerHTML = `<div style="color: #f87171; padding: 20px;">Error comparando álbum: ${err.message}</div>`;
+      }
+    }
+
+    function closeAlbumModal() {
+      document.getElementById('album-modal').style.display = 'none';
+    }
+
+    function closeAlbumModalOnBackdrop(e) {
+      if (e.target.id === 'album-modal') closeAlbumModal();
+    }
+
+    // DOWNLOAD & STREAMING LOGIC
+    let currentDownloadTrack = null;
+    let selectedDownloadProvider = null;
+    let selectedDownloadQuality = null;
+
+    const DEFAULT_DOWNLOAD_PROVIDERS = [
+      {
+        provider: 'qobuz-web',
+        displayName: 'Qobuz (Hi-Res FLAC)',
+        qualities: [
+          { id: 'HI_RES_LOSSLESS', label: '24-bit Hi-Res FLAC', kind: '24-bit / 192kHz', description: 'Audio de estudio sin pérdida máxima resolución' },
+          { id: 'LOSSLESS', label: '16-bit FLAC (CD)', kind: 'Lossless CD Quality', description: 'Calidad CD 16-bit 44.1kHz FLAC' },
+          { id: 'HIGH', label: '320 kbps MP3', kind: 'MP3 High Quality', description: '320kbps MP3 alta fidelidad' }
+        ],
+        requiresSignedSession: false
+      },
+      {
+        provider: 'amazon',
+        displayName: 'Amazon Music (Ultra HD & Atmos)',
+        qualities: [
+          { id: 'ATMOS', label: 'Dolby Atmos (Spatial Audio)', kind: 'E-AC-3 JOC Dolby Atmos', description: 'Audio espacial inmersivo' },
+          { id: 'HI_RES_LOSSLESS', label: 'Ultra HD (24-bit Hi-Res)', kind: '24-bit FLAC', description: '24-bit FLAC sin compresión' },
+          { id: 'LOSSLESS', label: 'HD (16-bit Lossless)', kind: '16-bit FLAC', description: 'Calidad CD HD FLAC' },
+          { id: 'HIGH', label: 'SD (320kbps)', kind: 'Opus/AAC 320k', description: 'Calidad estándar' }
+        ],
+        requiresSignedSession: true
+      },
+      {
+        provider: 'tidal-web',
+        displayName: 'Tidal (Hi-Res & HiFi)',
+        qualities: [
+          { id: 'HI_RES_LOSSLESS', label: 'Max / Hi-Res FLAC', kind: '24-bit FLAC', description: 'Hasta 24-bit 192kHz FLAC' },
+          { id: 'LOSSLESS', label: 'HiFi (16-bit FLAC)', kind: '16-bit FLAC', description: 'Calidad CD 44.1kHz sin pérdida' },
+          { id: 'HIGH', label: 'High (320 kbps)', kind: 'AAC 320k', description: 'Calidad estándar rápida' }
+        ],
+        requiresSignedSession: true
+      },
+      {
+        provider: 'ytmusic-spotiflac',
+        displayName: 'YouTube Music (SpotiFLAC)',
+        qualities: [
+          { id: 'best', label: 'Direct Audio Best (Opus/AAC)', kind: '256 kbps', description: 'Audio nativo oficial directo sin DRM' }
+        ],
+        requiresSignedSession: false
+      },
+      {
+        provider: 'deezer',
+        displayName: 'Deezer (FLAC HiFi)',
+        qualities: [
+          { id: 'LOSSLESS', label: 'FLAC 16-bit (HiFi)', kind: '16-bit FLAC', description: 'Calidad CD 1411 kbps' },
+          { id: 'HIGH', label: 'MP3 320 kbps', kind: 'MP3 320k', description: 'MP3 de alta velocidad' }
+        ],
+        requiresSignedSession: true
+      },
+      {
+        provider: 'soundcloud',
+        displayName: 'SoundCloud (HQ Stream)',
+        qualities: [
+          { id: 'best', label: 'High Quality Stream', kind: 'HQ MP3 / Opus', description: 'Audio original de SoundCloud' }
+        ],
+        requiresSignedSession: false
+      }
+    ];
+
+    async function openDownloadModal(idx) {
+      const track = currentResults[idx];
+      if (!track) return;
+      currentDownloadTrack = track;
+
+      const title = track.title || track.name;
+      const artist = typeof track.artist === 'string' ? track.artist : (track.artist?.name || track.artists || '');
+      const cover = track.apple_music?.cover_url || track.cover_url || track.album?.cover_big || '';
+
+      const modal = document.getElementById('download-modal');
+      const body = document.getElementById('download-modal-body');
+      modal.style.display = 'flex';
+
+      // 0 ms: Render base frame immediately
+      body.innerHTML = `
+        <div style="display: flex; gap: 16px; align-items: center; background: rgba(255, 255, 255, 0.04); padding: 16px; border-radius: 14px; margin-bottom: 20px;">
+          <img src="${cover}" style="width: 60px; height: 60px; border-radius: 10px; object-fit: cover;">
+          <div>
+            <h3 style="font-size: 18px; font-weight: 700; color: #fff;">${title}</h3>
+            <div style="color: var(--text-muted); font-size: 14px;">${artist}</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <label style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+              1. Proveedores Disponibles para Descarga:
+            </label>
+            <span id="dl-sync-status" style="font-size: 11px; color: #34d399; font-weight: 600;">⚡ Instantáneo (0ms)</span>
+          </div>
+          <div id="dl-providers-list" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+        </div>
+
+        <div id="dl-quality-section" style="display: block; margin-bottom: 24px;">
+          <label style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 10px;">
+            2. Calidad de Audio (según la extensión):
+          </label>
+          <div id="dl-qualities-list" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+        </div>
+
+        <div id="dl-action-section" style="display: block; border-top: 1px solid var(--border); padding-top: 20px;">
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <button class="search-btn" id="dl-stream-btn" style="background: linear-gradient(135deg, #06b6d4, #8b5cf6); border: none;" onclick="streamTrackInPlayer()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              <span>Escuchar Completa (Hi-Res Live)</span>
+            </button>
+            <button class="search-btn" style="background: var(--apple-red); border: none;" onclick="closeDownloadModal(); playFastStreamDirect('${escapeQuotes(title)}', '${escapeQuotes(artist)}', '${cover}', '${track.isrc || ''}', ${track.duration || 0})">
+              <span>⚡ Fast Stream 320 kbps (YTMusic)</span>
+            </button>
+            <button class="search-btn" id="dl-start-btn" style="background: #10b981;" onclick="startTrackDownload()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+              <span>Descargar Audio</span>
+            </button>
+            <button class="btn-action" style="padding: 9px 14px; font-size: 12.5px;" onclick="playPreviewQuick()">
+              <span>Muestra 30s</span>
+            </button>
+          </div>
+          <div id="dl-progress-box" style="display: none; margin-top: 16px;"></div>
+        </div>
+      `;
+
+      // 0 ms: Populate providers list from DEFAULT_DOWNLOAD_PROVIDERS instantly
+      window._dlProviders = DEFAULT_DOWNLOAD_PROVIDERS.map(p => ({ ...p }));
+      renderProviderButtons(window._dlProviders);
+      selectDownloadProvider(0);
+
+      // Background asynchronous silent sync (refines native trackIds without blocking UI)
+      fetch(`/api/resolve-track-providers?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&isrc=${track.isrc || ''}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.availableProviders && data.availableProviders.length > 0) {
+            const currentSelProv = selectedDownloadProvider?.provider;
+            window._dlProviders = data.availableProviders;
+            renderProviderButtons(window._dlProviders);
+            const keepIdx = window._dlProviders.findIndex(p => p.provider === currentSelProv);
+            selectDownloadProvider(keepIdx >= 0 ? keepIdx : 0);
+          }
+        })
+        .catch(() => {});
+    }
+
+    function renderProviderButtons(providers) {
+      const pList = document.getElementById('dl-providers-list');
+      if (!pList) return;
+      pList.innerHTML = providers.map((p, i) => `
+        <button class="tab-btn dl-prov-btn" id="dl-p-${p.provider}" onclick="selectDownloadProvider(${i})">
+          <span style="font-weight: 700;">${p.displayName}</span>
+          <span style="font-size: 11px; opacity: 0.7;">(${p.qualities.length} calidades)</span>
+          ${p.requiresSignedSession ? '<span class="badge badge-dolby" title="Requiere sesión firmada (api.zarz.moe)">🔒 sesión</span>' : '<span class="badge badge-lossless">listo</span>'}
+        </button>
+      `).join('');
+    }
+
+    function selectDownloadProvider(index) {
+      const providerObj = (window._dlProviders || [])[index];
+      if (!providerObj) return;
+      selectedDownloadProvider = providerObj;
+      document.querySelectorAll('.dl-prov-btn').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById(`dl-p-${providerObj.provider}`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const qSection = document.getElementById('dl-quality-section');
+      const qList = document.getElementById('dl-qualities-list');
+      const actionSection = document.getElementById('dl-action-section');
+
+      qSection.style.display = 'block';
+      actionSection.style.display = 'block';
+
+      const qualities = providerObj.qualities || [];
+      selectedDownloadQuality = qualities[0]?.id || 'best';
+
+      const warn = providerObj.requiresSignedSession ? `
+        <div style="width:100%; background: rgba(250,204,21,0.1); border:1px solid rgba(250,204,21,0.35); color:#fde68a; padding:10px 14px; border-radius:10px; font-size:12px; margin-bottom:6px;">
+          🔒 <strong>${providerObj.displayName}</strong> utiliza la pasarela de api.zarz.moe (sesión firmada). Si la sesión requiere Turnstile o está vencida, te sugerimos utilizar <strong>YouTube Music (SpotiFLAC)</strong> o <strong>SoundCloud</strong> para streaming y descarga directa sin límites.
+        </div>` : '';
+
+      qList.innerHTML = warn + qualities.map((q, qi) => `
+        <button class="tab-btn dl-q-btn ${qi === 0 ? 'active' : ''}" id="dl-q-${q.id}" onclick="selectDownloadQuality('${q.id}')">
+          <span style="font-weight: 700;">${q.label || q.id}</span>
+          ${q.kind ? `<span class="badge badge-lossless" style="font-size: 9px;">${q.kind}</span>` : ''}
+          ${q.description ? `<span style="font-size: 11px; opacity: 0.6; display: block;">${q.description}</span>` : ''}
+        </button>
+      `).join('');
+    }
+
+    function selectDownloadQuality(qualityId) {
+      selectedDownloadQuality = qualityId;
+      document.querySelectorAll('.dl-q-btn').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById(`dl-q-${qualityId}`);
+      if (activeBtn) activeBtn.classList.add('active');
+    }
+
+    function switchToProviderAndDownload(providerId) {
+      const idx = (window._dlProviders || []).findIndex(p => p.provider === providerId);
+      if (idx >= 0) {
+        selectDownloadProvider(idx);
+        startTrackDownload();
+      }
+    }
+
+    // Connect SSE for Real-Time Download Progress
+    let progressEventSource = null;
+    function ensureProgressSSE() {
+      if (progressEventSource) return;
+      try {
+        progressEventSource = new EventSource('/api/events/progress');
+        progressEventSource.onmessage = (e) => {
+          try {
+            const evt = JSON.parse(e.data);
+            if (evt.type === 'download_progress') {
+              const barEl = document.getElementById('dl-live-bar');
+              const pctEl = document.getElementById('dl-live-pct');
+              const speedEl = document.getElementById('dl-live-speed');
+              if (barEl) {
+                barEl.style.animation = 'none';
+                barEl.style.width = `${evt.percent || 0}%`;
+              }
+              if (pctEl) {
+                pctEl.textContent = `${evt.percent || 0}%`;
+              }
+              if (speedEl) {
+                const mbRec = (evt.bytesReceived / (1024 * 1024)).toFixed(2);
+                const mbTot = evt.totalBytes > 0 ? ` / ${(evt.totalBytes / (1024 * 1024)).toFixed(2)} MB` : ' MB';
+                speedEl.textContent = `⚡ ${evt.speedMBps || 0} MB/s · ${mbRec}${mbTot} · Etiquetando ID3/Vorbis + LRC...`;
+              }
+            }
+          } catch {}
+        };
+      } catch {}
+    }
+
+    const prefetchedTracks = new Set();
+    function prefetchTrack(idx) {
+      const track = currentResults[idx];
+      if (!track) return;
+      const title = track.title || track.name;
+      const artist = typeof track.artist === 'string' ? track.artist : (track.artist?.name || track.artists || '');
+      const key = `${title}|${artist}`;
+      if (prefetchedTracks.has(key)) return;
+      prefetchedTracks.add(key);
+      fetch(`/api/stream/prefetch?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&isrc=${encodeURIComponent(track.isrc || '')}`).catch(() => {});
+    }
+
+    async function startTrackDownload() {
+      if (!selectedDownloadProvider || !currentDownloadTrack) return;
+      ensureProgressSSE();
+
+      const progressBox = document.getElementById('dl-progress-box');
+      const startBtn = document.getElementById('dl-start-btn');
+
+      progressBox.style.display = 'block';
+      startBtn.disabled = true;
+      startBtn.style.opacity = '0.6';
+
+      const title = currentDownloadTrack.title || currentDownloadTrack.name;
+      const artist = typeof currentDownloadTrack.artist === 'string' ? currentDownloadTrack.artist : (currentDownloadTrack.artist?.name || currentDownloadTrack.artists || '');
+      const album = currentDownloadTrack.apple_music?.album_name || currentDownloadTrack.album?.title || currentDownloadTrack.album_name || '';
+      const cover = currentDownloadTrack.apple_music?.cover_url || currentDownloadTrack.cover_url || currentDownloadTrack.album?.cover_big || '';
+      const safeFilename = `${artist} - ${title}`.replace(/[\\/:*?"<>|]/g, '_');
+
+      progressBox.innerHTML = `
+        <div style="background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+          <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
+            <span>Descargando desde <strong>${selectedDownloadProvider.displayName}</strong> (${selectedDownloadQuality})...</span>
+            <span id="dl-live-pct" style="color: var(--apple-pink); font-weight: 700;">Conectando...</span>
+          </div>
+          <div class="progress-bar-wrap" style="height: 8px; margin-bottom: 8px;">
+            <div id="dl-live-bar" class="progress-bar-fill" style="width: 15%; transition: width 0.15s ease;"></div>
+          </div>
+          <div id="dl-live-speed" style="font-size: 12px; color: var(--text-muted);">Iniciando flujo de audio de alta fidelidad e inyección de metadatos...</div>
+        </div>
+      `;
+
+      try {
+        const res = await fetch(`/api/${selectedDownloadProvider.provider}/download`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            trackId: selectedDownloadProvider.trackId,
+            quality: selectedDownloadQuality,
+            filename: safeFilename,
+            title: title,
+            artist: artist,
+            album: album,
+            coverUrl: cover,
+            isrc: currentDownloadTrack.isrc || '',
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          const mb = (data.sizeBytes / (1024 * 1024)).toFixed(2);
+          const specsBadge = data.audioSpecs?.badgeText
+            ? `<span class="badge badge-lossless" style="font-size: 11px; margin-left: 6px;">🎛️ ${data.audioSpecs.badgeText}</span>`
+            : '';
+          const tagsBadge = data.tagged
+            ? `<span class="badge badge-apple" style="font-size: 10px;">🏷️ Tags + Cover 3000px</span>`
+            : '';
+          const lrcBadge = data.hasLyrics
+            ? `<span class="badge badge-dolby" style="font-size: 10px;">🎤 Letras .LRC Incluidas</span>`
+            : '';
+
+          progressBox.innerHTML = `
+            <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; border-radius: 12px; padding: 16px; color: #34d399;">
+              <div style="font-size: 15px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
+                <span>✅ ¡Descarga completada!</span>
+                ${specsBadge}
+                ${tagsBadge}
+                ${lrcBadge}
+              </div>
+              <div style="font-size: 13px; color: #e2e8f0; margin-bottom: 12px;">Archivo: <strong>${data.fileName}</strong> (${mb} MB)</div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="${data.streamUrl}" download class="search-btn" style="padding: 8px 18px; font-size: 13px; text-decoration: none;">Guardar Archivo</a>
+                <button class="btn-action" onclick="playPreview('${data.streamUrl}', '${escapeQuotes(title)}', '${escapeQuotes(artist)}', '${cover}', true, '${data.provider}', '${data.audioSpecs?.badgeText || data.quality}')">🎧 Reproducir Completa</button>
+              </div>
+            </div>
+          `;
+        } else {
+          const isTurnstile = (data.error || '').toLowerCase().includes('turnstile') ||
+                              (data.error || '').toLowerCase().includes('verification') ||
+                              (data.error || '').toLowerCase().includes('verify_required') ||
+                              data.error_type === 'verification_required' ||
+                              data.error_type === 'session_verification_required';
+          const currentProvId = (selectedDownloadProvider && (selectedDownloadProvider.provider || selectedDownloadProvider.id)) || (data && data.provider) || 'tidal-web';
+          const displayErr = isTurnstile 
+            ? `La extensión (${selectedDownloadProvider ? selectedDownloadProvider.displayName : currentProvId}) requiere resolver Turnstile de Cloudflare en el navegador para activar su pasarela de audio.`
+            : (data.error || 'No se pudo completar la descarga.');
+
+          progressBox.innerHTML = `
+            <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 12px; padding: 16px; color: #fca5a5;">
+              <div style="font-weight: 700; margin-bottom: 4px;">Aviso en descarga (${selectedDownloadProvider ? selectedDownloadProvider.displayName : 'Proveedor'}):</div>
+              <div style="font-size: 13px; line-height: 1.4; margin-bottom: 12px;">${displayErr}</div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                ${isTurnstile ? `
+                  <button class="search-btn" style="padding: 8px 16px; font-size: 13px; background: #3b82f6; color: #fff; font-weight: 700;" onclick="solveTurnstileAuto('${currentProvId}')">🤖 Resolver Automático (Mornye Solver)</button>
+                  <button class="search-btn" style="padding: 8px 16px; font-size: 13px; background: #f59e0b; color: #000; font-weight: 700;" onclick="openTurnstileChallenge('${currentProvId}')">🔓 Resolver en Navegador</button>
+                ` : ''}
+                ${currentProvId !== 'ytmusic-spotiflac' ? `<button class="search-btn" style="padding: 8px 16px; font-size: 13px; background: #e11d48;" onclick="switchToProviderAndDownload('ytmusic-spotiflac')">⚡ Usar YouTube Music (Sin captcha)</button>` : ''}
+                ${currentProvId !== 'soundcloud' ? `<button class="search-btn" style="padding: 8px 16px; font-size: 13px; background: #06b6d4;" onclick="switchToProviderAndDownload('soundcloud')">⚡ Usar SoundCloud</button>` : ''}
+                <button class="btn-action" onclick="playPreviewQuick()">Muestra de 30s</button>
+              </div>
+            </div>
+          `;
+        }
+      } catch (err) {
+        progressBox.innerHTML = `<div style="color: #f87171; padding: 10px;">Error: ${err.message}</div>`;
+      } finally {
+        startBtn.disabled = false;
+        startBtn.style.opacity = '1';
+      }
+    }
+
+    // Listen for Zarz Turnstile grant via postMessage from challenge popup
+    window.addEventListener('message', async (event) => {
+      let grant = null;
+      if (event.data && typeof event.data === 'object') {
+        if (event.data.type === 'zarz_grant' && event.data.grant) {
+          grant = event.data.grant;
+        } else if (event.data.grant) {
+          grant = event.data.grant;
+        }
+      } else if (typeof event.data === 'string') {
+        const m = event.data.match(/grant=([a-zA-Z0-9_-]+)/);
+        if (m) grant = m[1];
+      }
+
+      if (grant) {
+        console.log('[Turnstile] Grant recibido vía postMessage:', grant);
+        const prov = (selectedDownloadProvider && (selectedDownloadProvider.provider || selectedDownloadProvider.id)) || 'qobuz-web';
+        await submitTurnstileGrant(grant, prov);
+      }
+    });
+
+    async function submitTurnstileGrant(grant, providerId) {
+      const progressBox = document.getElementById('dl-progress-box');
+      let prov = providerId;
+      if (!prov || prov === 'undefined' || prov === 'null') {
+        prov = (selectedDownloadProvider && (selectedDownloadProvider.provider || selectedDownloadProvider.id)) || 'qobuz-web';
+      }
+
+      if (progressBox) {
+        progressBox.style.display = 'block';
+        progressBox.innerHTML = `
+          <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; border-radius: 12px; padding: 14px; color: #6ee7b7; font-weight: 700;">
+            <div class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px; border-top-color: #10b981; display: inline-block; vertical-align: middle; margin-right: 8px;"></div>
+            Canjeando verificación de ${prov.toUpperCase()}...
+          </div>
+        `;
+      }
+
+      try {
+        const res = await fetch('/api/auth/turnstile/exchange', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: prov, grant }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (progressBox) {
+            progressBox.innerHTML = `
+              <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; border-radius: 12px; padding: 14px; color: #6ee7b7; font-weight: 700;">
+                🎉 ¡Verificación confirmada exitosamente! Iniciando descarga...
+              </div>
+            `;
+          }
+          setTimeout(() => startTrackDownload(), 700);
+        } else {
+          if (progressBox) {
+            progressBox.innerHTML = `<div style="color: #f87171; padding: 10px;">Error al canjear: ${data.error || 'Token inválido'}</div>`;
+          }
+        }
+      } catch (e) {
+        if (progressBox) {
+          progressBox.innerHTML = `<div style="color: #f87171; padding: 10px;">Error de red: ${e.message}</div>`;
+        }
+      }
+    }
+
+    async function solveTurnstileAuto(providerId) {
+      const progressBox = document.getElementById('dl-progress-box');
+      let prov = providerId;
+      if (!prov || prov === 'undefined' || prov === 'null') {
+        prov = (selectedDownloadProvider && (selectedDownloadProvider.provider || selectedDownloadProvider.id)) || 'qobuz-web';
+      }
+
+      if (progressBox) {
+        progressBox.style.display = 'block';
+        progressBox.innerHTML = `
+          <div style="background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; border-radius: 12px; padding: 16px; color: #93c5fd;">
+            <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; margin-bottom: 6px;">
+              <div class="loading-spinner" style="width: 18px; height: 18px; border-width: 2px; border-top-color: #3b82f6;"></div>
+              <span>Resolviendo Turnstile en segundo plano...</span>
+            </div>
+            <div style="font-size: 13px; line-height: 1.5; color: #bfdbfe;">
+              WaveX está conectando con el solver de Mornye-Python para resolver el captcha automáticamente sin abrir ventanas molestas.
+            </div>
+          </div>
+        `;
+      }
+
+      try {
+        const res = await fetch('/api/auth/turnstile/solve-auto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: prov }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (progressBox) {
+            progressBox.innerHTML = `
+              <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; border-radius: 12px; padding: 14px; color: #6ee7b7; font-weight: 700;">
+                🎉 ¡Turnstile resuelto automáticamente! Iniciando descarga...
+              </div>
+            `;
+          }
+          setTimeout(() => startTrackDownload(), 700);
+        } else {
+          if (progressBox) {
+            progressBox.innerHTML = `
+              <div style="color: #f87171; padding: 10px;">
+                No se pudo resolver automáticamente: ${data.error}.<br>
+                <button class="search-btn" style="margin-top: 8px; padding: 6px 12px; font-size: 12px; background: #f59e0b; color: #000;" onclick="openTurnstileChallenge('${prov}')">Resolver en Navegador</button>
+              </div>
+            `;
+          }
+        }
+      } catch (err) {
+        if (progressBox) {
+          progressBox.innerHTML = `<div style="color: #f87171; padding: 10px;">Error: ${err.message}</div>`;
+        }
+      }
+    }
+
+    async function openTurnstileChallenge(providerId) {
+      const progressBox = document.getElementById('dl-progress-box');
+      try {
+        let prov = providerId;
+        if (!prov || prov === 'undefined' || prov === 'null') {
+          prov = (selectedDownloadProvider && (selectedDownloadProvider.provider || selectedDownloadProvider.id)) || 'qobuz-web';
+        }
+
+        // 1. Get challenge URL and open browser
+        const res = await fetch(`/api/auth/turnstile/url?provider=${encodeURIComponent(prov)}`);
+        const data = await res.json();
+
+        if (data.isAuthenticated) {
+          if (progressBox) {
+            progressBox.innerHTML = `<div style="color: #34d399; font-weight: 700;">✅ ¡Sesión ya activa! Iniciando descarga...</div>`;
+          }
+          setTimeout(() => startTrackDownload(), 600);
+          return;
+        }
+
+        if (data.challengeUrl) {
+          window.open(data.challengeUrl, 'zarz_challenge', 'width=520,height=680,scrollbars=yes');
+        } else {
+          // Fallback to server launcher
+          fetch(`/api/auth/turnstile/open?provider=${encodeURIComponent(prov)}`, { method: 'POST' }).catch(() => {});
+        }
+
+        if (progressBox) {
+          progressBox.style.display = 'block';
+          progressBox.innerHTML = `
+            <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; border-radius: 12px; padding: 16px; color: #fde68a;">
+              <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; margin-bottom: 6px;">
+                <div class="loading-spinner" style="width: 18px; height: 18px; border-width: 2px; border-top-color: #f59e0b;"></div>
+                <span>Esperando que marques «Soy humano»...</span>
+              </div>
+              <div style="font-size: 13px; line-height: 1.5; color: #fef3c7; margin-bottom: 12px;">
+                Se abrió la ventana de Cloudflare. Al marcar la casilla, <strong>se detectará automáticamente</strong> y la descarga comenzará aquí.
+              </div>
+              <div style="border-top: 1px solid rgba(245, 158, 11, 0.3); padding-top: 10px;">
+                <div style="font-size: 12px; color: #fed7aa; margin-bottom: 6px;">¿La ventana no se cerró sola? Pega aquí el enlace o grant:</div>
+                <div style="display: flex; gap: 8px;">
+                  <input id="turnstile-manual-grant" type="text" placeholder="Ej: gr_abc123... o grant=gr_..." style="flex: 1; padding: 6px 10px; border-radius: 8px; border: 1px solid #f59e0b; background: #0f172a; color: #fff; font-size: 12px;" />
+                  <button class="search-btn" style="padding: 6px 14px; font-size: 12px; background: #10b981; color: #fff; font-weight: 700;" onclick="const val = document.getElementById('turnstile-manual-grant').value; if(val) submitTurnstileGrant(val, '${prov}');">Canjear</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        // 2. Wait for verification completion
+        const waitRes = await fetch(`/api/auth/turnstile/wait?provider=${encodeURIComponent(prov)}&timeout=75000`);
+        const waitData = await waitRes.json();
+
+        if (waitData && waitData.verified) {
+          if (progressBox) {
+            progressBox.innerHTML = `
+              <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; border-radius: 12px; padding: 14px; color: #6ee7b7; font-weight: 700;">
+                🎉 ¡Verificación detectada exitosamente! Reanudando descarga...
+              </div>
+            `;
+          }
+          setTimeout(() => startTrackDownload(), 800);
+        } else if (waitData && waitData.timeout) {
+          if (progressBox) {
+            progressBox.innerHTML = `
+              <div style="color: #f87171; padding: 10px;">
+                ⚠️ Se agotó el tiempo de espera. Si ya lo resolviste en la ventana, pega el texto arriba o pulsa <strong>Iniciar Descarga</strong> nuevamente.
+              </div>
+            `;
+          }
+        }
+      } catch (err) {
+        if (progressBox) {
+          progressBox.innerHTML = `<div style="color: #f87171; padding: 10px;">Error: ${err.message}</div>`;
+        }
+      }
+    }
+
+    function streamTrackInPlayer() {
+      if (!currentDownloadTrack) return;
+      const title = currentDownloadTrack.title || currentDownloadTrack.name;
+      const artist = typeof currentDownloadTrack.artist === 'string' ? currentDownloadTrack.artist : (currentDownloadTrack.artist?.name || currentDownloadTrack.artists || '');
+      const cover = currentDownloadTrack.apple_music?.cover_url || currentDownloadTrack.cover_url || currentDownloadTrack.album?.cover_big || '';
+      const prov = selectedDownloadProvider ? (selectedDownloadProvider.provider || selectedDownloadProvider.id) : 'qobuz-web';
+      const provName = selectedDownloadProvider?.displayName || 'Proveedor';
+      const quality = selectedDownloadQuality || 'best';
+      const trackId = selectedDownloadProvider?.trackId || '';
+      const isrc = currentDownloadTrack.isrc || '';
+
+      // Direct Live Chunked Stream URL - Progressive streaming without waiting for the full track!
+      const streamUrl = `/api/stream/live?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&isrc=${encodeURIComponent(isrc)}&provider=${encodeURIComponent(prov)}&quality=${encodeURIComponent(quality)}${trackId ? `&trackId=${encodeURIComponent(trackId)}` : ''}`;
+
+      // Close modal immediately (0 ms) and start chunked progressive playback
+      closeDownloadModal();
+      playPreview(streamUrl, title, artist, cover, true, provName, quality);
+    }
+
+    function playPreviewQuick() {
+      if (!currentDownloadTrack) return;
+      const title = currentDownloadTrack.title || currentDownloadTrack.name;
+      const artist = typeof currentDownloadTrack.artist === 'string' ? currentDownloadTrack.artist : (currentDownloadTrack.artist?.name || currentDownloadTrack.artists || '');
+      const cover = currentDownloadTrack.apple_music?.cover_url || currentDownloadTrack.cover_url || currentDownloadTrack.album?.cover_big || '';
+      const preview = currentDownloadTrack.previewUrl || currentDownloadTrack.apple_music?.preview_url || '';
+
+      if (preview) {
+        closeDownloadModal();
+        playPreview(preview, title, artist, cover, false);
+      } else {
+        alert('Este track no tiene muestra rápida de 30s. Utiliza la opción "Escuchar Completa".');
+      }
+    }
+
+    function closeDownloadModal() {
+      document.getElementById('download-modal').style.display = 'none';
+    }
+
+    function closeDownloadModalOnBackdrop(e) {
+      if (e.target.id === 'download-modal') closeDownloadModal();
+    }
+
+    // PLAY QUEUE, GAPLESS PRE-WARMING, WEB AUDIO SPECTRUM & SYNCED LYRICS (.LRC)
+    let playQueue = [];
+    let queueIndex = -1;
+    let currentPlayingMeta = { title: '', artist: '', provider: '', quality: '' };
+    let parsedSyncedLyrics = [];
+    let nextTrackPrewarmed = false;
+    let audioCtx = null;
+    let analyser = null;
+    let visualizerStarted = false;
+
+    function initAudioVisualizer() {
+      if (visualizerStarted) return;
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        audioCtx = new AudioContextClass();
+        const src = audioCtx.createMediaElementSource(audio);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 64;
+        src.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        visualizerStarted = true;
+
+        const canvas = document.getElementById('audio-visualizer');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function renderFrame() {
+          requestAnimationFrame(renderFrame);
+          if (!analyser || audio.paused) return;
+          analyser.getByteFrequencyData(dataArray);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          const barCount = 16;
+          const barWidth = (canvas.width / barCount) - 2;
+          for (let i = 0; i < barCount; i++) {
+            const val = dataArray[i] || 0;
+            const barHeight = Math.max(2, (val / 255) * canvas.height);
+            const grad = ctx.createLinearGradient(0, canvas.height, 0, 0);
+            grad.addColorStop(0, '#06b6d4');
+            grad.addColorStop(1, '#ec4899');
+            ctx.fillStyle = grad;
+            ctx.fillRect(i * (barWidth + 2), canvas.height - barHeight, barWidth, barHeight);
+          }
+        }
+        renderFrame();
+      } catch (e) {
+        console.warn('Visualizer init notice:', e.message);
+      }
+    }
+
+    function addToQueue(idx) {
+      const track = currentResults[idx];
+      if (!track) return;
+      const title = track.title || track.name;
+      const artist = typeof track.artist === 'string' ? track.artist : (track.artist?.name || track.artists || '');
+      const cover = track.apple_music?.cover_url || track.cover_url || track.album?.cover_big || '';
+      playQueue.push({ title, artist, cover, isrc: track.isrc || '', provider: 'qobuz-web', quality: 'HI_RES_LOSSLESS' });
+
+      const badge = document.getElementById('player-specs-badge');
+      if (badge) badge.textContent = `📋 Cola: ${playQueue.length} pista(s)`;
+      if (audio.paused && !audio.src) {
+        queueIndex = playQueue.length - 1;
+        playQueueItem(queueIndex);
+      }
+    }
+
+    function playAllInQueue() {
+      if (!currentResults.length) return;
+      playQueue = currentResults.map((track) => ({
+        title: track.title || track.name,
+        artist: typeof track.artist === 'string' ? track.artist : (track.artist?.name || track.artists || ''),
+        cover: track.apple_music?.cover_url || track.cover_url || track.album?.cover_big || '',
+        isrc: track.isrc || '',
+        provider: 'qobuz-web',
+        quality: 'HI_RES_LOSSLESS',
+      }));
+      queueIndex = 0;
+      playQueueItem(0);
+    }
+
+    function playQueueItem(idx) {
+      const item = playQueue[idx];
+      if (!item) return;
+      queueIndex = idx;
+      const streamUrl = `/api/stream/live?title=${encodeURIComponent(item.title)}&artist=${encodeURIComponent(item.artist)}&isrc=${encodeURIComponent(item.isrc || '')}&provider=${encodeURIComponent(item.provider)}&quality=${encodeURIComponent(item.quality)}&browser=1`;
+      playPreview(streamUrl, item.title, item.artist, item.cover, true, item.provider, item.quality);
+    }
+
+    function playNextInQueue() {
+      if (playQueue.length > 0 && queueIndex + 1 < playQueue.length) {
+        playQueueItem(queueIndex + 1);
+      }
+    }
+
+    function playPrevInQueue() {
+      if (audio.currentTime > 4) {
+        audio.currentTime = 0;
+        return;
+      }
+      if (playQueue.length > 0 && queueIndex > 0) {
+        playQueueItem(queueIndex - 1);
+      }
+    }
+
+    // Batch Album / Playlist Downloader
+    async function startBatchDownloadCurrentResults() {
+      if (!currentResults.length) return;
+      const banner = document.getElementById('batch-status-banner');
+      banner.style.display = 'block';
+
+      const tracksPayload = currentResults.slice(0, 12).map((t) => ({
+        title: t.title || t.name,
+        artist: typeof t.artist === 'string' ? t.artist : (t.artist?.name || t.artists || ''),
+        album: t.apple_music?.album_name || t.album?.title || '',
+        isrc: t.isrc || '',
+        coverUrl: t.apple_music?.cover_url || t.cover_url || t.album?.cover_big || '',
+      }));
+
+      banner.innerHTML = `
+        <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 14px; padding: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div style="font-weight: 800; color: #34d399; font-size: 15px;">📦 Descargando Lote en Paralelo (${tracksPayload.length} canciones en Hi-Res + Tags + .LRC)...</div>
+            <div id="batch-progress-text" style="font-size: 13px; color: #cbd5e1; margin-top: 4px;">Iniciando workers de descarga concurrente...</div>
+          </div>
+          <div id="batch-actions"></div>
+        </div>
+      `;
+
+      try {
+        const res = await fetch('/api/batch/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            albumTitle: searchInput.value.trim() || 'WaveX Selection',
+            provider: 'qobuz-web',
+            quality: 'HI_RES_LOSSLESS',
+            tracks: tracksPayload,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) return;
+
+        const poll = setInterval(async () => {
+          try {
+            const stRes = await fetch(data.statusUrl);
+            const job = await stRes.json();
+            const txt = document.getElementById('batch-progress-text');
+            if (txt) {
+              txt.textContent = `Progreso: ${job.completed} completadas / ${job.total} total (${job.failed} avisos) · Etiquetadas con ID3/Vorbis + Cover 3000px`;
+            }
+            if (job.status === 'completed') {
+              clearInterval(poll);
+              const act = document.getElementById('batch-actions');
+              if (act) {
+                act.innerHTML = `<a href="${data.zipUrl}" download class="search-btn" style="padding: 8px 18px; font-size: 13px; text-decoration: none; background: #10b981;">⬇️ Descargar .ZIP Completo (${job.completed} Pistas)</a>`;
+              }
+            }
+          } catch {}
+        }, 1500);
+      } catch (e) {
+        banner.innerHTML = `<div style="color:#f87171;">Error en lote: ${e.message}</div>`;
+      }
+    }
+
+    // Synced Lyrics (.LRC) Karaoke Modal
+    function parseLrc(lrcText) {
+      if (!lrcText) return [];
+      const lines = lrcText.split('\n');
+      const out = [];
+      const timeReg = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+      for (const line of lines) {
+        const m = timeReg.exec(line);
+        if (m) {
+          const min = parseInt(m[1], 10);
+          const sec = parseInt(m[2], 10);
+          const ms = parseInt(m[3].padEnd(3, '0'), 10);
+          const time = min * 60 + sec + ms / 1000;
+          const text = line.replace(timeReg, '').trim();
+          if (text) out.push({ time, text });
+        }
+      }
+      return out;
+    }
+
+    async function openLyricsModal() {
+      const title = currentPlayingMeta.title || document.getElementById('player-title').textContent;
+      const artist = currentPlayingMeta.artist || document.getElementById('player-artist').textContent;
+      if (!title) return;
+
+      document.getElementById('lyrics-modal-title').textContent = `🎤 ${title}`;
+      document.getElementById('lyrics-modal-artist').textContent = artist;
+      const container = document.getElementById('lyrics-container');
+      container.innerHTML = `<div class="loading-spinner" style="margin: 30px auto;"></div>`;
+      document.getElementById('lyrics-modal').style.display = 'flex';
+
+      try {
+        const res = await fetch(`/api/lyrics?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`);
+        const data = await res.json();
+        if (data.syncedLyrics) {
+          parsedSyncedLyrics = parseLrc(data.syncedLyrics);
+          container.innerHTML = parsedSyncedLyrics.map((l, i) => `
+            <div id="lrc-line-${i}" style="padding: 6px 10px; border-radius: 8px; color: #94a3b8; transition: all 0.25s ease; cursor: pointer;" onclick="audio.currentTime=${l.time}">
+              ${l.text}
+            </div>
+          `).join('');
+        } else if (data.plainLyrics) {
+          parsedSyncedLyrics = [];
+          container.innerHTML = `<pre style="white-space: pre-wrap; font-family: inherit; color: #e2e8f0;">${data.plainLyrics}</pre>`;
+        } else {
+          parsedSyncedLyrics = [];
+          container.innerHTML = `<div style="color: var(--text-muted); padding: 30px;">No se encontraron letras sincronizadas para esta pista.</div>`;
+        }
+      } catch (e) {
+        container.innerHTML = `<div style="color: #f87171;">Error cargando letras: ${e.message}</div>`;
+      }
+    }
+
+    function closeLyricsModal() {
+      document.getElementById('lyrics-modal').style.display = 'none';
+    }
+
+    // Audio Player functionality with Rock-Solid Seeking (HTTP 206 Range + Fallback)
+    let currentKnownDuration = 0;
+    let currentStreamUrl = '';
+    let isUserScrubbing = false;
+
+    function getEffectiveDuration() {
+      if (audio.duration && isFinite(audio.duration) && audio.duration > 1) {
+        return audio.duration;
+      }
+      return currentKnownDuration || 210;
+    }
+
+    function formatTimeSec(sec) {
+      const s = Math.max(0, Math.floor(sec || 0));
+      return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    }
+
+    function quickHeroSearch(query) {
+      document.getElementById('search-input').value = query;
+      performSearch();
+    }
+
+    function switchMainView(viewName) {
+      document.querySelectorAll('.am-nav-item').forEach(b => b.classList.remove('active'));
+      const navEl = document.getElementById(`nav-${viewName}`);
+      if (navEl) navEl.classList.add('active');
+    }
+
+    let currentStreamPref = localStorage.getItem('wavex_stream_pref') || 'fixed-qobuz';
+
+    function setGlobalStreamPreference(pref) {
+      currentStreamPref = pref;
+      localStorage.setItem('wavex_stream_pref', pref);
+      updatePrefLabels();
+    }
+
+    function updatePrefLabels() {
+      const select = document.getElementById('global-stream-pref-select');
+      if (select) select.value = currentStreamPref;
+
+      let labelText = 'Qobuz Hi-Res';
+      if (currentStreamPref === 'fixed-ytm320') labelText = '320k Fast';
+      else if (currentStreamPref === 'fixed-tidal') labelText = 'Tidal HiRes';
+      else if (currentStreamPref === 'fixed-atmos') labelText = 'Atmos';
+      else if (currentStreamPref === 'fixed-deezer') labelText = 'Deezer';
+      else if (currentStreamPref === 'ask-always') labelText = 'Elegir...';
+
+      document.querySelectorAll('.pref-label-dynamic').forEach(el => {
+        el.textContent = labelText;
+      });
+    }
+
+    function playDirectPreferredTrack(idx) {
+      const track = currentResults[idx];
+      if (!track) return;
+      const title = track.title || track.name || '';
+      const artist = typeof track.artist === 'string' ? track.artist : (track.artist?.name || track.artists || '');
+      const cover = track.apple_music?.cover_url || track.cover_url || track.album?.cover_big || '';
+      const isrc = track.isrc || '';
+      const dur = Number(track.duration || 0);
+
+      if (currentStreamPref === 'ask-always') {
+        openDownloadModal(idx);
+        return;
+      }
+
+      if (currentStreamPref === 'fixed-ytm320') {
+        playFastStreamDirect(title, artist, cover, isrc, dur);
+        return;
+      }
+
+      let prov = 'qobuz-web';
+      let qual = 'HI_RES_LOSSLESS';
+      let provDisplayName = 'Qobuz';
+
+      if (currentStreamPref === 'fixed-tidal') {
+        prov = 'tidal-web';
+        qual = 'HI_RES_LOSSLESS';
+        provDisplayName = 'Tidal';
+      } else if (currentStreamPref === 'fixed-atmos') {
+        prov = 'amazon';
+        qual = 'eac3';
+        provDisplayName = 'Dolby Atmos';
+      } else if (currentStreamPref === 'fixed-deezer') {
+        prov = 'deezer';
+        qual = 'flac';
+        provDisplayName = 'Deezer';
+      }
+
+      currentKnownDuration = dur > 0 ? dur : 240;
+      const streamUrl = `/api/stream/live?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}${isrc ? `&isrc=${encodeURIComponent(isrc)}` : ''}&provider=${encodeURIComponent(prov)}&quality=${encodeURIComponent(qual)}&browser=1`;
+      playPreview(streamUrl, title, artist, cover, true, provDisplayName, qual);
+    }
+
+    function playFastStreamTrack(idx) {
+      const track = currentResults[idx];
+      if (!track) return;
+      const title = track.title || track.name || '';
+      const artist = typeof track.artist === 'string' ? track.artist : (track.artist?.name || track.artists || '');
+      const cover = track.apple_music?.cover_url || track.cover_url || track.album?.cover_big || '';
+      const isrc = track.isrc || '';
+      const dur = Number(track.duration || 0);
+      playFastStreamDirect(title, artist, cover, isrc, dur);
+    }
+
+    function playFastStreamDirect(title, artist, cover = '', isrc = '', durationSec = 0) {
+      currentKnownDuration = durationSec > 0 ? durationSec : 210;
+      const fastUrl = `/fast-streaming?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}${isrc ? `&isrc=${encodeURIComponent(isrc)}` : ''}`;
+      playPreview(fastUrl, title, artist, cover, true, 'Amazon Music', 'Opus 320k');
+    }
+
+    function playFastStreamingCurrentOrPrompt() {
+      if (currentResults.length > 0) {
+        playFastStreamTrack(0);
+      } else {
+        playFastStreamDirect('Woman', 'Doja Cat');
+      }
+    }
+
+    function playPreview(url, title, artist, thumb, isFullTrack = false, providerName = '', quality = '') {
+      if (!url) return;
+      initAudioVisualizer();
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+
+      currentStreamUrl = url;
+      currentPlayingMeta = { title, artist, provider: providerName, quality };
+      nextTrackPrewarmed = false;
+      parsedSyncedLyrics = [];
+      if (!isFullTrack) currentKnownDuration = 30;
+
+      if (thumb) {
+        document.getElementById('player-thumb').src = thumb;
+      }
+      document.getElementById('player-title').textContent = title;
+      document.getElementById('player-artist').textContent = artist;
+      const specsEl = document.getElementById('player-specs-badge');
+      if (specsEl) {
+        specsEl.textContent = isFullTrack ? '🎛️ Midiendo specs...' : 'PREVIEW';
+      }
+
+      const badge = document.getElementById('player-badge');
+      if (badge) {
+        if (isFullTrack) {
+          const qualBadge = quality ? ` · ${quality.toUpperCase()}` : '';
+          badge.textContent = `${providerName ? providerName.toUpperCase() : 'HI-RES'}${qualBadge}`;
+          badge.style.color = '#34d399';
+        } else {
+          badge.textContent = 'Muestra 30s';
+          badge.style.color = '#ff6b7b';
+        }
+      }
+
+      audio.src = url;
+      audio.play().catch(e => console.warn('Autoplay blocked:', e));
+      updatePlayIcon(true);
+
+      // Poll real ffprobe audio specs & exact duration after stream starts caching
+      if (isFullTrack) {
+        setTimeout(async () => {
+          try {
+            const res = await fetch(`/api/audio/specs?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`);
+            const d = await res.json();
+            if (d && d.found && d.specs) {
+              if (d.specs.badgeText && specsEl) {
+                specsEl.textContent = d.specs.badgeText;
+              }
+              if (d.specs.durationSec && d.specs.durationSec > 1) {
+                currentKnownDuration = d.specs.durationSec;
+                document.getElementById('player-dur-time').textContent = formatTimeSec(currentKnownDuration);
+              }
+            }
+          } catch {}
+        }, 2200);
+      }
+    }
+
+    function togglePlay() {
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+      if (audio.paused) {
+        audio.play();
+        updatePlayIcon(true);
+      } else {
+        audio.pause();
+        updatePlayIcon(false);
+      }
+    }
+
+    function updatePlayIcon(isPlaying) {
+      document.getElementById('play-icon').style.display = isPlaying ? 'none' : 'block';
+      document.getElementById('pause-icon').style.display = isPlaying ? 'block' : 'none';
+    }
+
+    audio.addEventListener('loadedmetadata', () => {
+      const dur = Math.floor(audio.duration || 0);
+      if (isFinite(dur) && dur > 0) {
+        currentKnownDuration = dur;
+        document.getElementById('player-dur-time').textContent = formatTimeSec(dur);
+      } else if (currentKnownDuration > 0) {
+        document.getElementById('player-dur-time').textContent = formatTimeSec(currentKnownDuration);
+      }
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      if (isUserScrubbing) return;
+      const curTime = audio.currentTime || 0;
+      document.getElementById('player-curr-time').textContent = formatTimeSec(curTime);
+
+      const effDur = getEffectiveDuration();
+      if (effDur > 0) {
+        const pct = Math.min(100, Math.max(0, (curTime / effDur) * 100));
+        document.getElementById('player-progress').style.width = `${pct}%`;
+
+        if (document.getElementById('player-dur-time').textContent === '--:--') {
+          document.getElementById('player-dur-time').textContent = formatTimeSec(effDur);
+        }
+
+        // Gapless Pre-warming: 15 seconds before track ends, pre-warm next track in queue
+        if (!nextTrackPrewarmed && effDur - curTime <= 15 && playQueue.length > 0 && queueIndex + 1 < playQueue.length) {
+          nextTrackPrewarmed = true;
+          const nextItem = playQueue[queueIndex + 1];
+          fetch(`/api/stream/prefetch?title=${encodeURIComponent(nextItem.title)}&artist=${encodeURIComponent(nextItem.artist)}&isrc=${encodeURIComponent(nextItem.isrc || '')}&provider=${encodeURIComponent(nextItem.provider)}&quality=${encodeURIComponent(nextItem.quality)}&warmAudio=1`).catch(() => {});
+        }
+      }
+
+      // Sync active lyric line if lyrics modal is open
+      if (parsedSyncedLyrics.length > 0 && document.getElementById('lyrics-modal').style.display === 'flex') {
+        let activeIdx = -1;
+        for (let i = 0; i < parsedSyncedLyrics.length; i++) {
+          if (curTime >= parsedSyncedLyrics[i].time) activeIdx = i;
+          else break;
+        }
+        if (activeIdx >= 0) {
+          parsedSyncedLyrics.forEach((_, idx) => {
+            const el = document.getElementById(`lrc-line-${idx}`);
+            if (el) {
+              if (idx === activeIdx) {
+                el.style.color = '#fff';
+                el.style.fontWeight = '800';
+                el.style.fontSize = '19px';
+                el.style.background = 'rgba(250, 35, 59, 0.2)';
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              } else {
+                el.style.color = '#94a3b8';
+                el.style.fontWeight = '400';
+                el.style.fontSize = '16px';
+                el.style.background = 'transparent';
+              }
+            }
+          });
+        }
+      }
+    });
+
+    let isRetryingFallback = false;
+
+    audio.addEventListener('error', (e) => {
+      console.warn('Audio playback error:', e, audio.error);
+      const specsEl = document.getElementById('player-specs-badge');
+      if (!isRetryingFallback && currentPlayingMeta && currentPlayingMeta.title) {
+        isRetryingFallback = true;
+        if (specsEl) specsEl.textContent = '⚡ Fallback Fast-Streaming (320 kbps)...';
+        const fallbackUrl = `/fast-streaming?title=${encodeURIComponent(currentPlayingMeta.title)}&artist=${encodeURIComponent(currentPlayingMeta.artist || '')}`;
+        currentStreamUrl = fallbackUrl;
+        audio.src = fallbackUrl;
+        audio.load();
+        audio.play().catch(err => {
+          console.warn('Fallback play failed:', err);
+          if (specsEl) specsEl.textContent = '❌ Error de reproducción';
+        });
+        setTimeout(() => { isRetryingFallback = false; }, 6000);
+      } else {
+        if (specsEl) specsEl.textContent = '❌ Error de reproducción';
+        updatePlayIcon(false);
+      }
+    });
+
+    audio.addEventListener('ended', () => {
+      updatePlayIcon(false);
+      if (playQueue.length > 0 && queueIndex + 1 < playQueue.length) {
+        playNextInQueue();
+      }
+    });
+
+    function performSeekToSeconds(targetTime) {
+      const effDur = getEffectiveDuration();
+      const clampedTarget = Math.max(0, Math.min(effDur - 0.5, targetTime));
+      const pct = (clampedTarget / effDur) * 100;
+      document.getElementById('player-progress').style.width = `${pct}%`;
+      document.getElementById('player-curr-time').textContent = formatTimeSec(clampedTarget);
+
+      try {
+        audio.currentTime = clampedTarget;
+      } catch (_) {}
+
+      // Verify after 90ms: if the initial stream lacked Range headers before caching finished and snapped back to 0,
+      // seamlessly upgrade the audio element to the cached HTTP 206 Range stream and jump to clampedTarget!
+      setTimeout(() => {
+        if (clampedTarget > 2.0 && audio.currentTime < 0.8 && currentStreamUrl) {
+          const sep = currentStreamUrl.includes('?') ? '&' : '?';
+          const rangeReadyUrl = currentStreamUrl.replace(/([?&])rangeSeek=\d+/g, '') + `${sep}rangeSeek=${Date.now()}`;
+          const wasPaused = audio.paused;
+          const onMeta = () => {
+            audio.removeEventListener('loadedmetadata', onMeta);
+            try { audio.currentTime = clampedTarget; } catch (_) {}
+            if (!wasPaused) audio.play().catch(() => {});
+          };
+          audio.addEventListener('loadedmetadata', onMeta);
+          audio.src = rangeReadyUrl;
+          audio.load();
+        }
+      }, 90);
+    }
+
+    function seekAudio(e) {
+      const bar = document.getElementById('progress-bar-wrap') || e.currentTarget;
+      const rect = bar.getBoundingClientRect();
+      const clickX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+      const pct = clickX / (rect.width || 1);
+      const effDur = getEffectiveDuration();
+      performSeekToSeconds(pct * effDur);
+    }
+
+    // Interactive Drag Scrubbing on Apple Music LCD Timeline
+    (function setupTimelineScrubbing() {
+      const wrap = document.getElementById('player-timeline-box');
+      if (!wrap) return;
+      wrap.addEventListener('mousedown', (e) => {
+        isUserScrubbing = true;
+        const bar = document.getElementById('progress-bar-wrap');
+        const updateVisual = (ev) => {
+          const rect = bar.getBoundingClientRect();
+          const x = Math.max(0, Math.min(rect.width, ev.clientX - rect.left));
+          const pct = x / (rect.width || 1);
+          document.getElementById('player-progress').style.width = `${pct * 100}%`;
+          document.getElementById('player-curr-time').textContent = formatTimeSec(pct * getEffectiveDuration());
+          return pct;
+        };
+        updateVisual(e);
+        const onMove = (ev) => updateVisual(ev);
+        const onUp = (ev) => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+          const finalPct = updateVisual(ev);
+          isUserScrubbing = false;
+          performSeekToSeconds(finalPct * getEffectiveDuration());
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      });
+    })();
+
+    // Interactive Full API Documentation Modal
+    async function openApiDocsModal() {
+      const modal = document.getElementById('api-docs-modal');
+      const body = document.getElementById('api-docs-body');
+      modal.style.display = 'flex';
+      body.innerHTML = '<div class="loading-spinner"></div>';
+
+      try {
+        const res = await fetch('/api/docs');
+        const data = await res.json();
+        const md = data.markdown || '';
+        const escaped = md
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+
+        body.innerHTML = `
+          <div style="display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;">
+            <a href="/fast-streaming?q=Doja%20Cat%20Woman&json=1" target="_blank" class="search-btn" style="text-decoration: none; font-size: 12px;">⚡ Probar /fast-streaming?q=Doja+Cat+Woman&json=1 ↗</a>
+            <a href="/api/docs?format=markdown" target="_blank" class="btn-action" style="text-decoration: none;">📄 Ver Markdown Raw (/api/docs?format=markdown) ↗</a>
+            <a href="/api/providers" target="_blank" class="btn-action" style="text-decoration: none;">🔌 Ver /api/providers ↗</a>
+            <a href="/api/downloads/history" target="_blank" class="btn-action" style="text-decoration: none;">🗂️ Ver /api/downloads/history ↗</a>
+          </div>
+          <pre style="background: #161618; border: 1px solid var(--border); border-radius: 12px; padding: 18px; color: #e2e8f0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; white-space: pre-wrap; line-height: 1.55;">${escaped}</pre>
+        `;
+      } catch (e) {
+        body.innerHTML = `<div style="color: #f87171;">Error cargando documentación: ${e.message}</div>`;
+      }
+    }
+
+    function closeApiDocsModal() {
+      document.getElementById('api-docs-modal').style.display = 'none';
+    }
+
+    function escapeQuotes(str) {
+      return String(str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    init();
+  </script>
+</body>
+</html>

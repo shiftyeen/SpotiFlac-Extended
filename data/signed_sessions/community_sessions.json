@@ -1,0 +1,12 @@
+{
+  "install_id": "0bc3a5d24d9c048df03b8226c12676ad",
+  "session_id": "sess_JF32A9riKSAlyyYCYmc4",
+  "session_secret": "_wGFQONiotcADzNlUw8yCEOlTwsa5RfAelZY4ge00ZQ",
+  "expires_at": "2026-11-05T08:52:16.083Z",
+  "refresh_after": "2026-11-05T06:52:16.083Z",
+  "capabilities": [
+    "resolve",
+    "metadata",
+    "download_ticket"
+  ]
+}
