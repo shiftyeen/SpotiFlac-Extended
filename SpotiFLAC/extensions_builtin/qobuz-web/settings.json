@@ -1,6 +1,0 @@
-{
-  "apiBaseUrl": "https://api.zarz.moe/v1/qbz",
-  "fallbackApiBaseUrl": "https://api.zarz.moe/v1/qbz2",
-  "appId": "798273057",
-  "countryCode": "US"
-}
