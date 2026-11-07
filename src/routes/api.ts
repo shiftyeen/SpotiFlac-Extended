@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import { EventEmitter } from 'node:events';
 import { exec, spawn } from 'node:child_process';
 import AdmZip from 'adm-zip';
@@ -44,13 +45,18 @@ function findChromiumExecutable(): string | null {
   const envBin = process.env.CHROMIUM_PATH || process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
   if (envBin && fs.existsSync(envBin)) return envBin;
 
-  // 1. Search inside project-local .chromium directory (downloaded by Puppeteer)
-  const localChromiumDir = path.resolve(process.cwd(), '.chromium');
-  if (fs.existsSync(localChromiumDir)) {
-    const targetNames = process.platform === 'win32'
-      ? ['chrome.exe', 'chromium.exe']
-      : (process.platform === 'darwin' ? ['Google Chrome for Testing', 'Chromium'] : ['chrome', 'chromium', 'chromium-browser']);
-    const stack = [localChromiumDir];
+  const targetNames = process.platform === 'win32'
+    ? ['chrome.exe', 'chromium.exe']
+    : (process.platform === 'darwin' ? ['Google Chrome for Testing', 'Chromium'] : ['chrome', 'chromium', 'chromium-browser']);
+
+  // 1. Search inside project-local .chromium directory and ~/.cache/puppeteer
+  const searchDirs = [
+    path.resolve(process.cwd(), '.chromium'),
+    path.join(os.homedir(), '.cache', 'puppeteer'),
+  ];
+  for (const baseDir of searchDirs) {
+    if (!fs.existsSync(baseDir)) continue;
+    const stack = [baseDir];
     while (stack.length > 0) {
       const dir = stack.pop()!;
       try {
@@ -92,31 +98,71 @@ function findChromiumExecutable(): string | null {
   return null;
 }
 
-export function launchSystemBrowser(url: string): void {
-  const chromiumBin = findChromiumExecutable();
+let chromiumInstallPromise: Promise<string | null> | null = null;
+
+async function ensureChromiumExecutable(): Promise<string | null> {
+  const existing = findChromiumExecutable();
+  if (existing) return existing;
+
+  if (!chromiumInstallPromise) {
+    chromiumInstallPromise = new Promise<string | null>((resolve) => {
+      const cacheDir = path.resolve(process.cwd(), '.chromium');
+      console.log(`[BrowserLaunch] Chromium no encontrado. Instalando automáticamente en ${cacheDir}...`);
+      exec(
+        `npx --yes @puppeteer/browsers install chrome@stable --path "${cacheDir}"`,
+        { timeout: 180000 },
+        (err) => {
+          if (err) {
+            console.warn(`[BrowserLaunch] No se pudo autoinstalar Chromium con @puppeteer/browsers:`, err.message);
+          }
+          resolve(findChromiumExecutable());
+        }
+      );
+    }).finally(() => {
+      chromiumInstallPromise = null;
+    });
+  }
+  return chromiumInstallPromise;
+}
+
+export async function launchSystemBrowser(url: string): Promise<boolean> {
+  const chromiumBin = await ensureChromiumExecutable();
   if (chromiumBin) {
-    if (process.platform !== 'win32' && process.platform !== 'darwin' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
-      console.log(`[BrowserLaunch] Servidor Linux sin DISPLAY activo. Para abrir Chromium en la VM usa Xvfb/escritorio o abre el enlace en tu navegador: ${url}`);
-      return;
-    }
     try {
+      const env = { ...process.env };
+      if (process.platform === 'linux' && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
+        env.DISPLAY = ':0';
+      }
       console.log(`[BrowserLaunch] Abriendo Chromium (${chromiumBin}) -> ${url}`);
       const child = spawn(
         chromiumBin,
-        [`--app=${url}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu'],
-        { detached: true, stdio: 'ignore' }
+        [`--app=${url}`, '--no-first-run', '--no-default-browser-check', '--no-sandbox', '--disable-gpu'],
+        { detached: true, stdio: 'ignore', env }
       );
+      const stayedAlive = await new Promise<boolean>((resolve) => {
+        const timer = setTimeout(() => resolve(true), 1500);
+        child.once('error', (err) => {
+          clearTimeout(timer);
+          console.warn(`[BrowserLaunch] Error al iniciar Chromium:`, err.message);
+          resolve(false);
+        });
+        child.once('exit', (code) => {
+          clearTimeout(timer);
+          if (code && code !== 0) {
+            console.warn(`[BrowserLaunch] Chromium se cerró con código ${code} (posiblemente falta entorno gráfico X11/DISPLAY en la VM). Abre este link en tu navegador: ${url}`);
+            resolve(false);
+          } else {
+            resolve(true);
+          }
+        });
+      });
       child.unref();
-      return;
+      if (stayedAlive) return true;
     } catch (e: any) {
       console.warn(`[BrowserLaunch] Falló lanzamiento directo de Chromium:`, e.message);
     }
   }
 
-  if (process.platform !== 'win32' && process.platform !== 'darwin' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
-    console.log(`[BrowserLaunch] Servidor Linux sin entorno gráfico (headless). Abre el challenge desde el navegador del cliente: ${url}`);
-    return;
-  }
   let cmd: string;
   if (process.platform === 'win32') {
     cmd = `start "" "${url}"`;
@@ -125,10 +171,15 @@ export function launchSystemBrowser(url: string): void {
   } else {
     cmd = `xdg-open "${url}"`;
   }
-  exec(cmd, (err) => {
-    if (err) {
-      console.warn(`[BrowserLaunch] Failed to open browser with command ${cmd}:`, err.message);
-    }
+  return new Promise<boolean>((resolve) => {
+    exec(cmd, (err) => {
+      if (err) {
+        console.warn(`[BrowserLaunch] No se pudo abrir navegador en el servidor (${err.message}). Abre este enlace en tu navegador: ${url}`);
+        resolve(false);
+      } else {
+        resolve(true);
+      }
+    });
   });
 }
 
@@ -1447,46 +1498,47 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
       let challengeId: string | undefined;
 
       if (isVerification) {
-        console.log(`[Download] ${provider} requiere verificación Turnstile.`);
         const { client } = resolveSignedClient(provider);
         const host = req.headers.host || '127.0.0.1:3000';
         const chal = client ? await client.getChallengeUrl(`http://${host}`, provider).catch(() => null) : null;
         challengeUrl = chal?.challengeUrl;
         challengeId = chal?.challengeId;
+        console.log(`[Download] ${provider} requiere verificación Turnstile. Challenge URL: ${challengeUrl || 'N/A'}`);
 
-        const autoPrompt = (req.body as any)?.autoPrompt ?? (req.query as any)?.autoPrompt;
-        const hasLocalDisplay = process.platform === 'win32' || process.platform === 'darwin' || Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
-        const isLocalClient = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
+        const rawAutoPrompt = (req.body as any)?.autoPrompt ?? (req.query as any)?.autoPrompt;
+        const autoPrompt = rawAutoPrompt === undefined ? true : (rawAutoPrompt !== false && rawAutoPrompt !== 'false' && rawAutoPrompt !== '0');
 
-        if (isVerification && autoPrompt && client && challengeUrl && hasLocalDisplay && isLocalClient) {
-          console.log(`[Download] Lanzando navegador local para verificar Turnstile manualmente...`);
-          launchSystemBrowser(challengeUrl);
-          const verified = await new Promise<boolean>((resolve) => {
-            const timer = setTimeout(() => {
-              authEvents.removeListener('verified', onV);
-              resolve(client.isAuthenticated());
-            }, 75000);
-            const onV = (data: any) => {
-              if (!data || data.provider === provider) {
-                clearTimeout(timer);
+        if (isVerification && autoPrompt && client && challengeUrl) {
+          console.log(`[Download] Intentando abrir Chromium para verificar Turnstile...`);
+          const opened = await launchSystemBrowser(challengeUrl);
+          if (opened) {
+            const verified = await new Promise<boolean>((resolve) => {
+              const timer = setTimeout(() => {
                 authEvents.removeListener('verified', onV);
-                resolve(true);
-              }
-            };
-            authEvents.on('verified', onV);
-          });
+                resolve(client.isAuthenticated());
+              }, 75000);
+              const onV = (data: any) => {
+                if (!data || data.provider === provider) {
+                  clearTimeout(timer);
+                  authEvents.removeListener('verified', onV);
+                  resolve(true);
+                }
+              };
+              authEvents.on('verified', onV);
+            });
 
-          if (verified) {
-            console.log(`[Download] ${provider} verificación confirmada. Reintentando descarga...`);
-            downloadResult = await runner.call(
-              'download',
-              [effectiveTrackId, quality, targetPath, '__progress__', downloadOptions],
-              300000
-            );
-            isVerification = downloadResult && downloadResult.success === false && (
-              downloadResult.error_type === 'verification_required' ||
-              /verify[_\s-]?required|turnstile|session.*expir|challenge/i.test(downloadResult.error_message || downloadResult.error || '')
-            );
+            if (verified) {
+              console.log(`[Download] ${provider} verificación confirmada. Reintentando descarga...`);
+              downloadResult = await runner.call(
+                'download',
+                [effectiveTrackId, quality, targetPath, '__progress__', downloadOptions],
+                300000
+              );
+              isVerification = downloadResult && downloadResult.success === false && (
+                downloadResult.error_type === 'verification_required' ||
+                /verify[_\s-]?required|turnstile|session.*expir|challenge/i.test(downloadResult.error_message || downloadResult.error || '')
+              );
+            }
           }
         }
       }
