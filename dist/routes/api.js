@@ -36,7 +36,82 @@ function syncSessionAcrossNamespace(manager, sourceClient) {
         console.warn('[SyncSession] Failed to sync session across namespace:', e);
     }
 }
+function findChromiumExecutable() {
+    const envBin = process.env.CHROMIUM_PATH || process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
+    if (envBin && fs.existsSync(envBin))
+        return envBin;
+    // 1. Search inside project-local .chromium directory (downloaded by Puppeteer)
+    const localChromiumDir = path.resolve(process.cwd(), '.chromium');
+    if (fs.existsSync(localChromiumDir)) {
+        const targetNames = process.platform === 'win32'
+            ? ['chrome.exe', 'chromium.exe']
+            : (process.platform === 'darwin' ? ['Google Chrome for Testing', 'Chromium'] : ['chrome', 'chromium', 'chromium-browser']);
+        const stack = [localChromiumDir];
+        while (stack.length > 0) {
+            const dir = stack.pop();
+            try {
+                for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                    const full = path.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        stack.push(full);
+                    }
+                    else if (targetNames.includes(entry.name)) {
+                        return full;
+                    }
+                }
+            }
+            catch { }
+        }
+    }
+    // 2. Check common system Chromium / Chrome paths
+    const candidates = process.platform === 'win32'
+        ? [
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+        ]
+        : process.platform === 'darwin'
+            ? [
+                '/Applications/Chromium.app/Contents/MacOS/Chromium',
+                '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            ]
+            : [
+                '/usr/bin/chromium',
+                '/usr/bin/chromium-browser',
+                '/snap/bin/chromium',
+                '/usr/bin/google-chrome',
+                '/usr/bin/google-chrome-stable',
+            ];
+    for (const c of candidates) {
+        if (fs.existsSync(c))
+            return c;
+    }
+    return null;
+}
 export function launchSystemBrowser(url) {
+    const chromiumBin = findChromiumExecutable();
+    if (chromiumBin) {
+        if (process.platform !== 'win32' && process.platform !== 'darwin' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+            console.log(`[BrowserLaunch] Servidor Linux sin DISPLAY activo. Para abrir Chromium en la VM usa Xvfb/escritorio o abre el enlace en tu navegador: ${url}`);
+            return;
+        }
+        try {
+            console.log(`[BrowserLaunch] Abriendo Chromium (${chromiumBin}) -> ${url}`);
+            const child = spawn(chromiumBin, [`--app=${url}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu'], {
+                detached: true,
+                stdio: 'ignore',
+            });
+            child.unref();
+            return;
+        }
+        catch (e) {
+            console.warn(`[BrowserLaunch] Falló lanzamiento directo de Chromium:`, e.message);
+        }
+    }
+    if (process.platform !== 'win32' && process.platform !== 'darwin' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+        console.log(`[BrowserLaunch] Servidor Linux sin entorno gráfico (headless). Abre el challenge desde el navegador del cliente: ${url}`);
+        return;
+    }
     let cmd;
     if (process.platform === 'win32') {
         cmd = `start "" "${url}"`;
@@ -232,6 +307,7 @@ export function registerRoutes(app, manager) {
         if (client) {
             try {
                 await client.exchangeGrant(grant);
+                syncSessionAcrossNamespace(manager, client);
                 authEvents.emit('verified', { provider, timestamp: Date.now() });
                 authEvents.emit(`verified:${provider}`, { provider, timestamp: Date.now() });
             }
@@ -841,7 +917,7 @@ export function registerRoutes(app, manager) {
         const wArtist = normText(artist);
         if (!wArtist)
             return { ok: true, by: 'title' };
-        const cArtistRaw = candidate.artists ?? candidate.artist;
+        const cArtistRaw = candidate.artists ?? candidate.artist ?? candidate.performer?.name ?? candidate.performer;
         const cArtist = normText(Array.isArray(cArtistRaw) ? cArtistRaw.map((a) => a?.name || a).join(' ') : (cArtistRaw?.name || cArtistRaw));
         if (!cArtist)
             return { ok: false, by: '' };
@@ -945,6 +1021,8 @@ export function registerRoutes(app, manager) {
         if (!isrcTrusted)
             resolvedLinks = null;
         const effectiveIsrc = isrc || resolvedLinks?.isrc || '';
+        const primaryArtist = (artist || '').split(/[,;&]|\b(?:feat|ft|with)\.?\b/i)[0].trim();
+        const shortSearchQuery = primaryArtist ? `${title} ${primaryArtist}`.trim() : searchQuery;
         const available = [];
         await Promise.allSettled(downloadProviders.map(async ({ id: providerId, manifest }) => {
             const runner = manager.getRunner(providerId);
@@ -970,25 +1048,30 @@ export function registerRoutes(app, manager) {
                 try {
                     const check = isrcTrusted ? await runner.call('checkAvailability', [effectiveIsrc, title, artist || '', options], 3500) : null;
                     if (check && check.available && check.track_id) {
-                        trackId = String(check.track_id);
+                        trackId = String(check.track_id).replace(/^(?:qobuz|tidal|deezer|spotify:track):/i, '');
                         preparedContext = check.prepared_context || null;
                         verifiedBy = 'checkAvailability';
                     }
                 }
                 catch { }
-                // 2) Search the provider and require a REAL match (ISRC or title+artist), never just result[0]
+                // 2) ISRC-keyed hint from the resolver (Qobuz/Tidal/Deezer) if already resolved
+                if (!trackId && hintId) {
+                    trackId = hintId;
+                    verifiedBy = 'resolver:isrc';
+                }
+                // 3) Search the provider and require a REAL match (ISRC or title+artist), never just result[0]
                 if (!trackId) {
                     try {
-                        const q = effectiveIsrc && !isYtm ? effectiveIsrc : searchQuery;
+                        const q = effectiveIsrc && !isYtm ? effectiveIsrc : shortSearchQuery;
                         let results = await runner.call('customSearch', [q, { filter: 'tracks', limit: 6 }], 3500);
-                        if ((!Array.isArray(results) || !results.length) && q !== searchQuery) {
-                            results = await runner.call('customSearch', [searchQuery, { filter: 'tracks', limit: 6 }], 3500);
+                        if ((!Array.isArray(results) || !results.length) && q !== shortSearchQuery) {
+                            results = await runner.call('customSearch', [shortSearchQuery, { filter: 'tracks', limit: 6 }], 3500);
                         }
                         if (Array.isArray(results)) {
                             for (const r of results) {
                                 const m = matchesTrack(r, title, artist || '', effectiveIsrc);
                                 if (m.ok && r.id) {
-                                    trackId = String(r.id);
+                                    trackId = String(r.id).replace(/^(?:qobuz|tidal|deezer|spotify:track):/i, '');
                                     verifiedBy = 'search:' + m.by;
                                     break;
                                 }
@@ -997,10 +1080,38 @@ export function registerRoutes(app, manager) {
                     }
                     catch { }
                 }
-                // 3) ISRC-keyed hint from the resolver (Qobuz/Tidal/Deezer) when search could not run
-                if (!trackId && hintId) {
-                    trackId = hintId;
-                    verifiedBy = 'resolver:isrc';
+                // 3b) Direct public Qobuz API fallback if qobuz-web worker timed out or was busy
+                if (!trackId && providerId === 'qobuz-web') {
+                    try {
+                        const qbzQuery = effectiveIsrc || shortSearchQuery;
+                        const qbzRes = await fetch(`https://www.qobuz.com/api.json/0.2/track/search?query=${encodeURIComponent(qbzQuery)}&limit=6`, {
+                            headers: { 'X-App-Id': '735532640', 'User-Agent': 'Mozilla/5.0' },
+                            signal: AbortSignal.timeout(3000),
+                        });
+                        if (qbzRes.ok) {
+                            const qbzData = await qbzRes.json();
+                            let items = qbzData?.tracks?.items || [];
+                            if (!items.length && qbzQuery !== shortSearchQuery) {
+                                const qbzRes2 = await fetch(`https://www.qobuz.com/api.json/0.2/track/search?query=${encodeURIComponent(shortSearchQuery)}&limit=6`, {
+                                    headers: { 'X-App-Id': '735532640', 'User-Agent': 'Mozilla/5.0' },
+                                    signal: AbortSignal.timeout(3000),
+                                });
+                                if (qbzRes2.ok) {
+                                    const qbzData2 = await qbzRes2.json();
+                                    items = qbzData2?.tracks?.items || [];
+                                }
+                            }
+                            for (const r of items) {
+                                const m = matchesTrack(r, title, artist || '', effectiveIsrc);
+                                if (m.ok && r.id) {
+                                    trackId = String(r.id);
+                                    verifiedBy = 'qobuz-public:' + m.by;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    catch { }
                 }
                 // 4) YouTube link given by the user: that exact video is, by definition, on YT Music
                 if (isYtm && ytHintId) {
@@ -1177,50 +1288,40 @@ export function registerRoutes(app, manager) {
             let downloadResult = await runner.call('download', [effectiveTrackId, quality, targetPath, '__progress__', downloadOptions], 300000);
             let isVerification = downloadResult && downloadResult.success === false && (downloadResult.error_type === 'verification_required' ||
                 /verify[_\s-]?required|turnstile|session.*expir|challenge/i.test(downloadResult.error_message || downloadResult.error || ''));
+            let challengeUrl;
+            let challengeId;
             if (isVerification) {
-                console.log(`[Download] ${provider} requiere verificación Turnstile. Intentando resolución automática...`);
+                console.log(`[Download] ${provider} requiere verificación Turnstile.`);
                 const { client } = resolveSignedClient(provider);
-                if (client && AutoTurnstileSolver.isAvailable()) {
-                    console.log(`[Download] Ejecutando AutoTurnstileSolver en segundo plano para ${provider}...`);
-                    try {
-                        const autoRes = await AutoTurnstileSolver.solveAndAuthenticate(client);
-                        if (autoRes.success) {
-                            console.log(`[Download] ¡AutoTurnstileSolver resolvió exitosamente la sesión para ${provider}! Reintentando descarga...`);
-                            syncSessionAcrossNamespace(manager, client);
-                            downloadResult = await runner.call('download', [effectiveTrackId, quality, targetPath, '__progress__', downloadOptions], 300000);
-                            isVerification = downloadResult && downloadResult.success === false && (downloadResult.error_type === 'verification_required' ||
-                                /verify[_\s-]?required|turnstile|session.*expir|challenge/i.test(downloadResult.error_message || downloadResult.error || ''));
-                        }
-                    }
-                    catch (solveErr) {
-                        console.warn(`[Download] AutoTurnstileSolver falló: ${solveErr.message}`);
-                    }
-                }
+                const host = req.headers.host || '127.0.0.1:3000';
+                const chal = client ? await client.getChallengeUrl(`http://${host}`, provider).catch(() => null) : null;
+                challengeUrl = chal?.challengeUrl;
+                challengeId = chal?.challengeId;
                 const autoPrompt = req.body?.autoPrompt ?? req.query?.autoPrompt;
-                if (isVerification && autoPrompt && client) {
-                    console.log(`[Download] Lanzando navegador del sistema para verificar Turnstile manualmente...`);
-                    const host = req.headers.host || '127.0.0.1:3000';
-                    const chal = await client.getChallengeUrl(`http://${host}`, provider);
-                    if (chal?.challengeUrl) {
-                        launchSystemBrowser(chal.challengeUrl);
-                        const verified = await new Promise((resolve) => {
-                            const timer = setTimeout(() => {
+                const hasLocalDisplay = process.platform === 'win32' || process.platform === 'darwin' || Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
+                const isLocalClient = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
+                if (isVerification && autoPrompt && client && challengeUrl && hasLocalDisplay && isLocalClient) {
+                    console.log(`[Download] Lanzando navegador local para verificar Turnstile manualmente...`);
+                    launchSystemBrowser(challengeUrl);
+                    const verified = await new Promise((resolve) => {
+                        const timer = setTimeout(() => {
+                            authEvents.removeListener('verified', onV);
+                            resolve(client.isAuthenticated());
+                        }, 75000);
+                        const onV = (data) => {
+                            if (!data || data.provider === provider) {
+                                clearTimeout(timer);
                                 authEvents.removeListener('verified', onV);
-                                resolve(client.isAuthenticated());
-                            }, 75000);
-                            const onV = (data) => {
-                                if (!data || data.provider === provider) {
-                                    clearTimeout(timer);
-                                    authEvents.removeListener('verified', onV);
-                                    resolve(true);
-                                }
-                            };
-                            authEvents.on('verified', onV);
-                        });
-                        if (verified) {
-                            console.log(`[Download] ${provider} verificación confirmada. Reintentando descarga...`);
-                            downloadResult = await runner.call('download', [effectiveTrackId, quality, targetPath, '__progress__', downloadOptions], 300000);
-                        }
+                                resolve(true);
+                            }
+                        };
+                        authEvents.on('verified', onV);
+                    });
+                    if (verified) {
+                        console.log(`[Download] ${provider} verificación confirmada. Reintentando descarga...`);
+                        downloadResult = await runner.call('download', [effectiveTrackId, quality, targetPath, '__progress__', downloadOptions], 300000);
+                        isVerification = downloadResult && downloadResult.success === false && (downloadResult.error_type === 'verification_required' ||
+                            /verify[_\s-]?required|turnstile|session.*expir|challenge/i.test(downloadResult.error_message || downloadResult.error || ''));
                     }
                 }
             }
@@ -1234,6 +1335,8 @@ export function registerRoutes(app, manager) {
                     needsVerification: isVerification,
                     provider,
                     quality,
+                    challengeUrl,
+                    challengeId,
                 });
             }
             let finalPath = null;

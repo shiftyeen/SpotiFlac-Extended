@@ -135,30 +135,40 @@ export class LinkResolver {
       }
     }
 
-    // 3. Fallback: Search Spotify via Deezer metadata
-    if (isrc && manager) {
-      try {
-        const dzRes = await fetch(`https://api.deezer.com/track/isrc:${encodeURIComponent(isrc)}`);
+    // 3. Fallback: Resolve directly via Deezer API (by ISRC or search) -> Zarz multi-provider resolver
+    try {
+      let dzTrack: any = null;
+      if (isrc) {
+        const dzRes = await fetch(`https://api.deezer.com/track/isrc:${encodeURIComponent(isrc.trim())}`, { signal: AbortSignal.timeout(3000) });
         if (dzRes.ok) {
           const dzData: any = await dzRes.json();
-          if (dzData && dzData.title && dzData.artist?.name) {
-            const spRunner = manager.getRunner('spotify-web');
-            if (spRunner) {
-              const spTracks = await spRunner.call('customSearch', [`${dzData.title} ${dzData.artist.name}`, { filter: 'tracks', limit: 1 }], 2500);
-              if (spTracks && Array.isArray(spTracks) && spTracks.length > 0 && spTracks[0].id) {
-                const rawId = String(spTracks[0].id).replace(/^spotify:track:/, '');
-                const res = await this.resolveByUrl(`https://open.spotify.com/track/${rawId}`);
-                if (res) {
-                  this.cache.set(metaCacheKey, res);
-                  PersistentCacheDB.saveTrackMapping(metaCacheKey, title, artist, isrc || res.isrc, res);
-                  return res;
-                }
-              }
-            }
+          if (dzData && !dzData.error && dzData.id) dzTrack = dzData;
+        }
+      }
+      if (!dzTrack && title) {
+        const primaryArtist = (artist || '').split(/[,;&]|\b(?:feat|ft|with)\.?\b/i)[0].trim();
+        const q = `${title} ${primaryArtist}`.trim();
+        const dzSearch = await fetch(`https://api.deezer.com/search/track?q=${encodeURIComponent(q)}&limit=3`, { signal: AbortSignal.timeout(3000) });
+        if (dzSearch.ok) {
+          const dzList: any = await dzSearch.json();
+          if (Array.isArray(dzList?.data) && dzList.data.length > 0) {
+            dzTrack = dzList.data[0];
           }
         }
-      } catch {}
-    }
+      }
+      if (dzTrack && dzTrack.id) {
+        const deezerUrl = dzTrack.link || `https://www.deezer.com/track/${dzTrack.id}`;
+        const res = await this.resolveByUrl(deezerUrl);
+        if (res) {
+          if (!res.isrc && (isrc || dzTrack.isrc)) res.isrc = isrc || dzTrack.isrc;
+          if (!res.deezer) res.deezer = deezerUrl;
+          if (res.nativeIds && !res.nativeIds.deezerId) res.nativeIds.deezerId = String(dzTrack.id);
+          this.cache.set(metaCacheKey, res);
+          PersistentCacheDB.saveTrackMapping(metaCacheKey, title, artist, isrc || res.isrc, res);
+          return res;
+        }
+      }
+    } catch {}
 
     return null;
   }

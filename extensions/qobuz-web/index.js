@@ -2129,19 +2129,19 @@ function searchCollectionViaAPI(resource, query, limit) {
   try {
     var publicPayload = getPublicQobuzJSON(resource + "/search", params);
     var publicItems = metadataCollectionItems(publicPayload, key);
-    if (publicItems && publicItems.length) {
-      if (signedError) {
+    if (Array.isArray(publicItems)) {
+      if (signedError && publicItems.length) {
         log.warn("[QobuzWeb] Signed " + resource + " search unavailable, using public fallback: " + signedError.message);
       }
       return publicItems;
     }
   } catch (publicError) {
     if (isTerminalLookupError(publicError)) throw publicError;
-    if (signedError) throw signedError;
+    if (signedError && !isVerificationRequiredError(signedError)) throw signedError;
     if (signedItems === null) throw publicError;
   }
 
-  if (signedError) throw signedError;
+  if (signedError && !isVerificationRequiredError(signedError)) throw signedError;
   return signedItems || [];
 }
 
@@ -2294,7 +2294,7 @@ function albumSearchTitle(value) {
 }
 
 function isTerminalLookupError(error) {
-  return isVerificationRequiredError(error) || ensureNotCancelled() ||
+  return ensureNotCancelled() ||
     /cancelled|execution timeout exceeded/i.test(String(error && error.message || error));
 }
 

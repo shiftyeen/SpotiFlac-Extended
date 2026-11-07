@@ -1,1 +1,7 @@
 node_modules/
+.chromium/
+downloads/
+data/
+.chromium/
+downloads/
+data/
