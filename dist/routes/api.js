@@ -37,39 +37,16 @@ function syncSessionAcrossNamespace(manager, sourceClient) {
         console.warn('[SyncSession] Failed to sync session across namespace:', e);
     }
 }
-function findChromiumExecutable() {
+function findChromiumCandidates() {
     const envBin = process.env.CHROMIUM_PATH || process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
+    const found = [];
     if (envBin && fs.existsSync(envBin))
-        return envBin;
+        found.push(envBin);
     const targetNames = process.platform === 'win32'
         ? ['chrome.exe', 'chromium.exe']
         : (process.platform === 'darwin' ? ['Google Chrome for Testing', 'Chromium'] : ['chrome', 'chromium', 'chromium-browser']);
-    // 1. Search inside project-local .chromium directory and ~/.cache/puppeteer
-    const searchDirs = [
-        path.resolve(process.cwd(), '.chromium'),
-        path.join(os.homedir(), '.cache', 'puppeteer'),
-    ];
-    for (const baseDir of searchDirs) {
-        if (!fs.existsSync(baseDir))
-            continue;
-        const stack = [baseDir];
-        while (stack.length > 0) {
-            const dir = stack.pop();
-            try {
-                for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-                    const full = path.join(dir, entry.name);
-                    if (entry.isDirectory()) {
-                        stack.push(full);
-                    }
-                    else if (targetNames.includes(entry.name)) {
-                        return full;
-                    }
-                }
-            }
-            catch { }
-        }
-    }
-    // 2. Check common system Chromium / Chrome paths
+    // Prefer the OS browser: bundled Chrome for Testing can fail with exit code
+    // 127 when Linux is missing shared libraries such as libnspr4/libnss3.
     const candidates = process.platform === 'win32'
         ? [
             'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -87,12 +64,42 @@ function findChromiumExecutable() {
                 '/snap/bin/chromium',
                 '/usr/bin/google-chrome',
                 '/usr/bin/google-chrome-stable',
+                '/usr/local/bin/chromium',
+                '/usr/local/bin/google-chrome',
             ];
     for (const c of candidates) {
-        if (fs.existsSync(c))
-            return c;
+        if (fs.existsSync(c) && !found.includes(c))
+            found.push(c);
     }
-    return null;
+    // Fall back to project-local .chromium and ~/.cache/puppeteer.
+    const searchDirs = [
+        path.resolve(process.cwd(), '.chromium'),
+        path.join(os.homedir(), '.cache', 'puppeteer'),
+    ];
+    for (const baseDir of searchDirs) {
+        if (!fs.existsSync(baseDir))
+            continue;
+        const stack = [baseDir];
+        while (stack.length > 0) {
+            const dir = stack.pop();
+            try {
+                for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                    const full = path.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        stack.push(full);
+                    }
+                    else if (targetNames.includes(entry.name) && !found.includes(full)) {
+                        found.push(full);
+                    }
+                }
+            }
+            catch { }
+        }
+    }
+    return found;
+}
+function findChromiumExecutable() {
+    return findChromiumCandidates()[0] || null;
 }
 let chromiumInstallPromise = null;
 async function ensureChromiumExecutable() {
@@ -116,19 +123,17 @@ async function ensureChromiumExecutable() {
     return chromiumInstallPromise;
 }
 export async function launchSystemBrowser(url) {
-    const chromiumBin = await ensureChromiumExecutable();
-    if (chromiumBin) {
+    const installedChromium = await ensureChromiumExecutable();
+    const chromiumBins = [installedChromium, ...findChromiumCandidates()]
+        .filter((value, index, list) => Boolean(value) && list.indexOf(value) === index);
+    for (const chromiumBin of chromiumBins) {
         try {
             const env = { ...process.env };
             if (process.platform === 'linux' && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
                 env.DISPLAY = ':0';
             }
             console.log(`[BrowserLaunch] Abriendo Chromium (${chromiumBin}) -> ${url}`);
-            const child = spawn(chromiumBin, [`--app=${url}`, '--no-first-run', '--no-default-browser-check', '--no-sandbox', '--disable-gpu'], {
-                detached: true,
-                stdio: ['ignore', 'ignore', 'pipe'],
-                env,
-            });
+            const child = spawn(chromiumBin, [`--app=${url}`, '--no-first-run', '--no-default-browser-check', '--no-sandbox', '--disable-gpu'], { detached: true, stdio: ['ignore', 'ignore', 'pipe'], env });
             let stderrText = '';
             child.stderr?.on('data', (chunk) => {
                 if (stderrText.length < 500)
@@ -144,6 +149,9 @@ export async function launchSystemBrowser(url) {
                 child.once('exit', (code) => {
                     clearTimeout(timer);
                     if (code && code !== 0) {
+                        if (code === 127) {
+                            console.warn('[BrowserLaunch] Linux dependency missing: install libnspr4 and libnss3, or set CHROME_PATH to a system Chrome/Chromium binary.');
+                        }
                         const firstErrLine = stderrText.trim().split('\n')[0] || '';
                         console.warn(`[BrowserLaunch] Chromium se cerró con código ${code}${firstErrLine ? ` (${firstErrLine})` : ''}. ` +
                             (code === 127
@@ -160,13 +168,15 @@ export async function launchSystemBrowser(url) {
             child.unref();
             if (stayedAlive)
                 return true;
-            if (process.platform === 'linux')
-                return false;
         }
         catch (e) {
             console.warn(`[BrowserLaunch] Falló lanzamiento directo de Chromium:`, e.message);
         }
     }
+    // On a headless Linux server xdg-open can return success without a usable
+    // browser. Let the caller print the challenge URL for a remote device.
+    if (process.platform === 'linux')
+        return false;
     let cmd;
     if (process.platform === 'win32') {
         cmd = `start "" "${url}"`;
@@ -1145,18 +1155,12 @@ export function registerRoutes(app, manager) {
                 if (!trackId && providerId === 'qobuz-web') {
                     try {
                         const qbzQuery = effectiveIsrc || shortSearchQuery;
-                        const qbzRes = await fetch(`https://www.qobuz.com/api.json/0.2/track/search?query=${encodeURIComponent(qbzQuery)}&limit=6`, {
-                            headers: { 'X-App-Id': '735532640', 'User-Agent': 'Mozilla/5.0' },
-                            signal: AbortSignal.timeout(3000),
-                        });
+                        const qbzRes = await fetch(`https://www.qobuz.com/api.json/0.2/track/search?query=${encodeURIComponent(qbzQuery)}&limit=6`, { headers: { 'X-App-Id': '735532640', 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(3000) });
                         if (qbzRes.ok) {
                             const qbzData = await qbzRes.json();
                             let items = qbzData?.tracks?.items || [];
                             if (!items.length && qbzQuery !== shortSearchQuery) {
-                                const qbzRes2 = await fetch(`https://www.qobuz.com/api.json/0.2/track/search?query=${encodeURIComponent(shortSearchQuery)}&limit=6`, {
-                                    headers: { 'X-App-Id': '735532640', 'User-Agent': 'Mozilla/5.0' },
-                                    signal: AbortSignal.timeout(3000),
-                                });
+                                const qbzRes2 = await fetch(`https://www.qobuz.com/api.json/0.2/track/search?query=${encodeURIComponent(shortSearchQuery)}&limit=6`, { headers: { 'X-App-Id': '735532640', 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(3000) });
                                 if (qbzRes2.ok) {
                                     const qbzData2 = await qbzRes2.json();
                                     items = qbzData2?.tracks?.items || [];
@@ -1751,6 +1755,22 @@ export function registerRoutes(app, manager) {
                         }
                         if (!targetTrackId)
                             continue;
+                        // The metadata resolver takes the first Spotify hit blindly, so an unknown song can come back with the ISRC of an
+                        // UNRELATED track. Only trust the ISRC/links if the user gave the ISRC, or the resolved ISRC really is this song.
+                        let isrcTrusted = Boolean(isrc);
+                        if (!isrcTrusted && resolvedLinks?.isrc) {
+                            try {
+                                const dzRes = await fetch(`https://api.deezer.com/track/isrc:${encodeURIComponent(resolvedLinks.isrc)}`, { signal: AbortSignal.timeout(3500) });
+                                if (dzRes.ok) {
+                                    const dz = await dzRes.json();
+                                    if (dz && !dz.error && matchesTrack({ title: dz.title, artist: dz.artist?.name }, title, artist || '').ok)
+                                        isrcTrusted = true;
+                                }
+                            }
+                            catch { }
+                        }
+                        if (!isrcTrusted)
+                            resolvedLinks = null;
                         const effectiveIsrc = isrc || resolvedLinks?.isrc || '';
                         const mornyeOpts = buildMornyeOptions(candidateProv, title, artist || '', 0, effectiveIsrc, resolvedLinks);
                         const downloadOptions = {
@@ -2829,6 +2849,22 @@ export function registerRoutes(app, manager) {
             }
             catch { }
         }
+        // The metadata resolver takes the first Spotify hit blindly, so an unknown song can come back with the ISRC of an
+        // UNRELATED track. Only trust the ISRC/links if the user gave the ISRC, or the resolved ISRC really is this song.
+        let isrcTrusted = Boolean(isrc);
+        if (!isrcTrusted && resolvedLinks?.isrc) {
+            try {
+                const dzRes = await fetch(`https://api.deezer.com/track/isrc:${encodeURIComponent(resolvedLinks.isrc)}`, { signal: AbortSignal.timeout(3500) });
+                if (dzRes.ok) {
+                    const dz = await dzRes.json();
+                    if (dz && !dz.error && matchesTrack({ title: dz.title, artist: dz.artist?.name }, title, artist || '').ok)
+                        isrcTrusted = true;
+                }
+            }
+            catch { }
+        }
+        if (!isrcTrusted)
+            resolvedLinks = null;
         const effectiveIsrc = isrc || resolvedLinks?.isrc || '';
         // 2. Candidate download providers list:
         const priorityCandidates = reqProvider

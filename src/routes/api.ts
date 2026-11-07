@@ -41,38 +41,17 @@ function syncSessionAcrossNamespace(manager: ExtensionManager, sourceClient: Sig
   }
 }
 
-function findChromiumExecutable(): string | null {
+function findChromiumCandidates(): string[] {
   const envBin = process.env.CHROMIUM_PATH || process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
-  if (envBin && fs.existsSync(envBin)) return envBin;
+  const found: string[] = [];
+  if (envBin && fs.existsSync(envBin)) found.push(envBin);
 
   const targetNames = process.platform === 'win32'
     ? ['chrome.exe', 'chromium.exe']
     : (process.platform === 'darwin' ? ['Google Chrome for Testing', 'Chromium'] : ['chrome', 'chromium', 'chromium-browser']);
 
-  // 1. Search inside project-local .chromium directory and ~/.cache/puppeteer
-  const searchDirs = [
-    path.resolve(process.cwd(), '.chromium'),
-    path.join(os.homedir(), '.cache', 'puppeteer'),
-  ];
-  for (const baseDir of searchDirs) {
-    if (!fs.existsSync(baseDir)) continue;
-    const stack = [baseDir];
-    while (stack.length > 0) {
-      const dir = stack.pop()!;
-      try {
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-          const full = path.join(dir, entry.name);
-          if (entry.isDirectory()) {
-            stack.push(full);
-          } else if (targetNames.includes(entry.name)) {
-            return full;
-          }
-        }
-      } catch {}
-    }
-  }
-
-  // 2. Check common system Chromium / Chrome paths
+  // Prefer the OS browser: bundled Chrome for Testing can fail with exit code
+  // 127 when Linux is missing shared libraries such as libnspr4/libnss3.
   const candidates = process.platform === 'win32'
     ? [
         'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -90,12 +69,42 @@ function findChromiumExecutable(): string | null {
         '/snap/bin/chromium',
         '/usr/bin/google-chrome',
         '/usr/bin/google-chrome-stable',
+        '/usr/local/bin/chromium',
+        '/usr/local/bin/google-chrome',
       ];
 
   for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
+    if (fs.existsSync(c) && !found.includes(c)) found.push(c);
   }
-  return null;
+
+  // Fall back to project-local .chromium and ~/.cache/puppeteer.
+  const searchDirs = [
+    path.resolve(process.cwd(), '.chromium'),
+    path.join(os.homedir(), '.cache', 'puppeteer'),
+  ];
+  for (const baseDir of searchDirs) {
+    if (!fs.existsSync(baseDir)) continue;
+    const stack = [baseDir];
+    while (stack.length > 0) {
+      const dir = stack.pop()!;
+      try {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            stack.push(full);
+          } else if (targetNames.includes(entry.name) && !found.includes(full)) {
+            found.push(full);
+          }
+        }
+      } catch {}
+    }
+  }
+
+  return found;
+}
+
+function findChromiumExecutable(): string | null {
+  return findChromiumCandidates()[0] || null;
 }
 
 let chromiumInstallPromise: Promise<string | null> | null = null;
@@ -126,8 +135,11 @@ async function ensureChromiumExecutable(): Promise<string | null> {
 }
 
 export async function launchSystemBrowser(url: string): Promise<boolean> {
-  const chromiumBin = await ensureChromiumExecutable();
-  if (chromiumBin) {
+  const installedChromium = await ensureChromiumExecutable();
+  const chromiumBins = [installedChromium, ...findChromiumCandidates()]
+    .filter((value, index, list): value is string => Boolean(value) && list.indexOf(value) === index);
+
+  for (const chromiumBin of chromiumBins) {
     try {
       const env = { ...process.env };
       if (process.platform === 'linux' && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
@@ -153,6 +165,9 @@ export async function launchSystemBrowser(url: string): Promise<boolean> {
         child.once('exit', (code) => {
           clearTimeout(timer);
           if (code && code !== 0) {
+            if (code === 127) {
+              console.warn('[BrowserLaunch] Linux dependency missing: install libnspr4 and libnss3, or set CHROME_PATH to a system Chrome/Chromium binary.');
+            }
             const firstErrLine = stderrText.trim().split('\n')[0] || '';
             console.warn(
               `[BrowserLaunch] Chromium se cerró con código ${code}${firstErrLine ? ` (${firstErrLine})` : ''}. ` +
@@ -169,11 +184,14 @@ export async function launchSystemBrowser(url: string): Promise<boolean> {
       child.stderr?.destroy();
       child.unref();
       if (stayedAlive) return true;
-      if (process.platform === 'linux') return false;
     } catch (e: any) {
       console.warn(`[BrowserLaunch] Falló lanzamiento directo de Chromium:`, e.message);
     }
   }
+
+  // On a headless Linux server xdg-open can return success without a usable
+  // browser. Let the caller print the challenge URL for a remote device.
+  if (process.platform === 'linux') return false;
 
   let cmd: string;
   if (process.platform === 'win32') {
