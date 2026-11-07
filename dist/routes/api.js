@@ -126,8 +126,13 @@ export async function launchSystemBrowser(url) {
             console.log(`[BrowserLaunch] Abriendo Chromium (${chromiumBin}) -> ${url}`);
             const child = spawn(chromiumBin, [`--app=${url}`, '--no-first-run', '--no-default-browser-check', '--no-sandbox', '--disable-gpu'], {
                 detached: true,
-                stdio: 'ignore',
+                stdio: ['ignore', 'ignore', 'pipe'],
                 env,
+            });
+            let stderrText = '';
+            child.stderr?.on('data', (chunk) => {
+                if (stderrText.length < 500)
+                    stderrText += chunk.toString();
             });
             const stayedAlive = await new Promise((resolve) => {
                 const timer = setTimeout(() => resolve(true), 1500);
@@ -139,7 +144,11 @@ export async function launchSystemBrowser(url) {
                 child.once('exit', (code) => {
                     clearTimeout(timer);
                     if (code && code !== 0) {
-                        console.warn(`[BrowserLaunch] Chromium se cerró con código ${code} (posiblemente falta entorno gráfico X11/DISPLAY en la VM). Abre este link en tu navegador: ${url}`);
+                        const firstErrLine = stderrText.trim().split('\n')[0] || '';
+                        console.warn(`[BrowserLaunch] Chromium se cerró con código ${code}${firstErrLine ? ` (${firstErrLine})` : ''}. ` +
+                            (code === 127
+                                ? `Faltan librerías del sistema en Linux (ejecuta: sudo apt-get update && sudo apt-get install -y chromium-browser libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libgtk-3-0 libasound2t64 || sudo apt-get install -y libasound2).`
+                                : `Verifica que la VM tenga servidor gráfico X11/DISPLAY o abre el link desde tu navegador.`));
                         resolve(false);
                     }
                     else {
@@ -147,9 +156,12 @@ export async function launchSystemBrowser(url) {
                     }
                 });
             });
+            child.stderr?.destroy();
             child.unref();
             if (stayedAlive)
                 return true;
+            if (process.platform === 'linux')
+                return false;
         }
         catch (e) {
             console.warn(`[BrowserLaunch] Falló lanzamiento directo de Chromium:`, e.message);
@@ -1351,27 +1363,33 @@ export function registerRoutes(app, manager) {
                 if (isVerification && autoPrompt && client && challengeUrl) {
                     console.log(`[Download] Intentando abrir Chromium para verificar Turnstile...`);
                     const opened = await launchSystemBrowser(challengeUrl);
-                    if (opened) {
-                        const verified = await new Promise((resolve) => {
-                            const timer = setTimeout(() => {
+                    if (!opened) {
+                        console.log(`\n================================================================================`);
+                        console.log(`🔓 [VERIFICACIÓN REQUERIDA - ${provider.toUpperCase()}]`);
+                        console.log(`Abre este enlace en el navegador de tu PC/móvil (esperando hasta 60s):`);
+                        console.log(`👉 ${challengeUrl}`);
+                        console.log(`================================================================================\n`);
+                    }
+                    const verified = await new Promise((resolve) => {
+                        const timer = setTimeout(() => {
+                            authEvents.removeListener('verified', onV);
+                            resolve(client.isAuthenticated());
+                        }, opened ? 75000 : 60000);
+                        const onV = (data) => {
+                            if (!data || data.provider === provider) {
+                                clearTimeout(timer);
                                 authEvents.removeListener('verified', onV);
-                                resolve(client.isAuthenticated());
-                            }, 75000);
-                            const onV = (data) => {
-                                if (!data || data.provider === provider) {
-                                    clearTimeout(timer);
-                                    authEvents.removeListener('verified', onV);
-                                    resolve(true);
-                                }
-                            };
-                            authEvents.on('verified', onV);
-                        });
-                        if (verified) {
-                            console.log(`[Download] ${provider} verificación confirmada. Reintentando descarga...`);
-                            downloadResult = await runner.call('download', [effectiveTrackId, quality, targetPath, '__progress__', downloadOptions], 300000);
-                            isVerification = downloadResult && downloadResult.success === false && (downloadResult.error_type === 'verification_required' ||
-                                /verify[_\s-]?required|turnstile|session.*expir|challenge/i.test(downloadResult.error_message || downloadResult.error || ''));
-                        }
+                                resolve(true);
+                            }
+                        };
+                        authEvents.on('verified', onV);
+                    });
+                    if (verified) {
+                        console.log(`[Download] ${provider} verificación confirmada. Reintentando descarga...`);
+                        syncSessionAcrossNamespace(manager, client);
+                        downloadResult = await runner.call('download', [effectiveTrackId, quality, targetPath, '__progress__', downloadOptions], 300000);
+                        isVerification = downloadResult && downloadResult.success === false && (downloadResult.error_type === 'verification_required' ||
+                            /verify[_\s-]?required|turnstile|session.*expir|challenge/i.test(downloadResult.error_message || downloadResult.error || ''));
                     }
                 }
             }
