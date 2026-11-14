@@ -7,7 +7,6 @@ import AdmZip from 'adm-zip';
 import { AlbumMatcher } from '../services/album-matcher.js';
 import { LinkResolver } from '../services/link-resolver.js';
 import { SignedSessionClient } from '../runtime/signed-session.js';
-import { AutoTurnstileSolver } from '../runtime/auto-solver.js';
 import { LiveStreamRegistry, DownloadProgressBus } from '../runtime/runner.js';
 import { PersistentCacheDB } from '../services/db-cache.js';
 import { AudioProcessor } from '../services/audio-processor.js';
@@ -295,6 +294,7 @@ function setCached(map, key, data, ttlMs) {
     PersistentCacheDB.set(ns, key, data, ttlMs);
 }
 export function registerRoutes(app, manager) {
+    const chromiumAuthPromises = new Map();
     // Favicon handler
     app.get('/favicon.ico', async (_req, reply) => {
         return reply.status(204).send();
@@ -322,6 +322,49 @@ export function registerRoutes(app, manager) {
         }
         return { client: null, provider: p };
     }
+    function getCallbackBase(req) {
+        const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+        const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+        const protocol = forwardedProto || 'http';
+        const host = forwardedHost || req.headers.host || '127.0.0.1:3000';
+        return `${protocol}://${host}`;
+    }
+    async function authenticateWithChromium(client, provider, callbackBase, timeoutMs = 90000) {
+        if (client.isAuthenticated())
+            return true;
+        const existing = chromiumAuthPromises.get(provider);
+        if (existing)
+            return existing;
+        const task = (async () => {
+            const challenge = await client.getChallengeUrl(callbackBase, provider).catch(() => null);
+            if (!challenge)
+                return client.isAuthenticated();
+            const opened = await launchSystemBrowser(challenge.challengeUrl, provider);
+            if (!opened)
+                return false;
+            return new Promise((resolve) => {
+                const onVerified = (data) => {
+                    if (data && data.provider !== provider)
+                        return;
+                    clearTimeout(timer);
+                    authEvents.removeListener('verified', onVerified);
+                    resolve(true);
+                };
+                const timer = setTimeout(() => {
+                    authEvents.removeListener('verified', onVerified);
+                    const authenticated = client.isAuthenticated();
+                    if (!authenticated)
+                        closeSystemBrowser(provider);
+                    resolve(authenticated);
+                }, timeoutMs);
+                authEvents.on('verified', onVerified);
+            });
+        })().finally(() => {
+            chromiumAuthPromises.delete(provider);
+        });
+        chromiumAuthPromises.set(provider, task);
+        return task;
+    }
     // Turnstile Challenge URL Generator (Multi-provider)
     app.get('/api/auth/turnstile/url', async (req, reply) => {
         let reqProvider = (req.query.provider || '').trim();
@@ -335,8 +378,7 @@ export function registerRoutes(app, manager) {
         if (client.isAuthenticated()) {
             return { success: true, isAuthenticated: true, provider, message: `La sesión para ${provider} ya está autenticada y activa` };
         }
-        const host = req.headers.host || '127.0.0.1:3000';
-        const callbackBase = `http://${host}`;
+        const callbackBase = getCallbackBase(req);
         const result = await client.getChallengeUrl(callbackBase, provider);
         if (!result) {
             return { success: true, isAuthenticated: client.isAuthenticated(), provider, message: 'Sesión activa' };
@@ -362,8 +404,7 @@ export function registerRoutes(app, manager) {
         if (client.isAuthenticated()) {
             return { success: true, isAuthenticated: true, provider, message: `La sesión para ${provider} ya está activa` };
         }
-        const host = req.headers.host || '127.0.0.1:3000';
-        const callbackBase = `http://${host}`;
+        const callbackBase = getCallbackBase(req);
         const result = await client.getChallengeUrl(callbackBase, provider);
         if (!result) {
             return { success: true, isAuthenticated: client.isAuthenticated(), provider, message: 'Sesión activa' };
@@ -533,7 +574,7 @@ export function registerRoutes(app, manager) {
             return reply.status(500).send({ success: false, error: `Error canjeando token: ${err.message}` });
         }
     });
-    // Automated Background Solver Route (via Mornye-Python solver)
+    // Compatibility route used by the web UI: open standard Chromium and wait for callback.
     app.post('/api/auth/turnstile/solve-auto', async (req, reply) => {
         const body = (req.body || {});
         let reqProvider = (body.provider || '').trim();
@@ -547,25 +588,23 @@ export function registerRoutes(app, manager) {
         if (client.isAuthenticated()) {
             return { success: true, verified: true, provider, message: 'La sesión ya está autenticada y activa' };
         }
-        if (!AutoTurnstileSolver.isAvailable()) {
-            return reply.status(400).send({ success: false, error: 'El solver automático de Mornye-Python no está disponible en este sistema' });
-        }
         try {
-            const result = await AutoTurnstileSolver.solveAndAuthenticate(client);
-            if (result.success) {
+            const verified = await authenticateWithChromium(client, provider, getCallbackBase(req));
+            if (verified) {
                 syncSessionAcrossNamespace(manager, client);
-                authEvents.emit('verified', { provider, timestamp: Date.now() });
-                authEvents.emit(`verified:${provider}`, { provider, timestamp: Date.now() });
                 return {
                     success: true,
                     verified: true,
                     provider,
-                    message: `Sesión de ${provider} resuelta automáticamente en segundo plano`,
+                    message: `Sesión de ${provider} verificada mediante Chromium`,
                 };
             }
-            else {
-                return reply.status(500).send({ success: false, error: result.error || 'No se pudo resolver Turnstile automáticamente' });
-            }
+            return reply.status(408).send({
+                success: false,
+                verified: false,
+                provider,
+                error: 'Chromium no pudo completar la verificación antes de agotar el tiempo de espera',
+            });
         }
         catch (err) {
             return reply.status(500).send({ success: false, error: err.message });
@@ -1848,9 +1887,9 @@ export function registerRoutes(app, manager) {
                             /verify[_\s-]?required|turnstile|session.*expir|challenge/i.test(dlResult.error_message || dlResult.error || ''));
                         if (isVerification) {
                             const { client } = resolveSignedClient(candidateProv);
-                            if (client && AutoTurnstileSolver.isAvailable()) {
-                                const autoRes = await AutoTurnstileSolver.solveAndAuthenticate(client);
-                                if (autoRes.success) {
+                            if (client) {
+                                const verified = await authenticateWithChromium(client, candidateProv, getCallbackBase(req));
+                                if (verified) {
                                     syncSessionAcrossNamespace(manager, client);
                                     dlResult = await runner.call('download', [targetTrackId, effQuality, targetPath, '__progress__', downloadOptions], 180000);
                                 }
@@ -2318,10 +2357,10 @@ export function registerRoutes(app, manager) {
                                 /verify[_\s-]?required|turnstile|session.*expir|challenge/i.test(amzResult.error_message || amzResult.error || ''));
                             if (isVerification) {
                                 const { client } = resolveSignedClient('amazon');
-                                if (client && AutoTurnstileSolver.isAvailable()) {
-                                    console.log('[FastStreaming] Resolviendo challenge de Amazon automáticamente...');
-                                    const autoRes = await AutoTurnstileSolver.solveAndAuthenticate(client);
-                                    if (autoRes.success) {
+                                if (client) {
+                                    console.log('[FastStreaming] Abriendo Chromium para verificar Amazon...');
+                                    const verified = await authenticateWithChromium(client, 'amazon', getCallbackBase(req));
+                                    if (verified) {
                                         syncSessionAcrossNamespace(manager, client);
                                         amzResult = await amzRunner.call('download', [amazonAsin, 'opus', targetPath, '__progress__', {}], 120000);
                                     }
@@ -3029,13 +3068,13 @@ export function registerRoutes(app, manager) {
                 let isVerification = dlResult && dlResult.success === false && (dlResult.error_type === 'verification_required' ||
                     /verify[_\s-]?required|turnstile|session.*expir|challenge/i.test(dlResult.error_message || dlResult.error || ''));
                 if (isVerification) {
-                    console.log(`[StreamFull] ${provider} requiere verificación Turnstile. Intentando resolución automática...`);
+                    console.log(`[StreamFull] ${provider} requiere verificación Turnstile. Abriendo Chromium...`);
                     const { client } = resolveSignedClient(provider);
-                    if (client && AutoTurnstileSolver.isAvailable()) {
+                    if (client) {
                         try {
-                            const autoRes = await AutoTurnstileSolver.solveAndAuthenticate(client);
-                            if (autoRes.success) {
-                                console.log(`[StreamFull] AutoTurnstileSolver resolvió la sesión para ${provider}. Reintentando stream...`);
+                            const verified = await authenticateWithChromium(client, provider, getCallbackBase(req));
+                            if (verified) {
+                                console.log(`[StreamFull] Chromium verificó la sesión para ${provider}. Reintentando stream...`);
                                 syncSessionAcrossNamespace(manager, client);
                                 dlResult = await runner.call('download', [targetTrackId, quality, targetPath, '__progress__', downloadOptions], 180000);
                             }

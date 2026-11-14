@@ -39,7 +39,7 @@ sudo apt-get update
 sudo apt-get install -y chromium xvfb
 ```
 
-Cuando un proveedor solicite verificación, WaveX inicia Chromium dentro de una pantalla virtual con `xvfb-run`, espera el callback, guarda la sesión y cierra Chromium. Los perfiles persistentes se guardan por defecto en `data/chromium-profile/<provider>`.
+Cuando un proveedor solicite verificación, WaveX inicia Chromium dentro de una pantalla virtual con `xvfb-run`, espera el callback, guarda la sesión y cierra Chromium. Los perfiles persistentes se guardan por defecto en `data/chromium-profile/<provider>`. `SessionKeeper` solo renueva sesiones existentes y no arranca Mornye-Python por defecto.
 
 Variables opcionales:
 

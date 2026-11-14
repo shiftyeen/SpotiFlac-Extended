@@ -15,6 +15,7 @@ export class AutoTurnstileSolver {
   private static isSolving: boolean = false;
   private static solvePromise: Promise<AutoSolveResult> | null = null;
   private static keeperTimer: NodeJS.Timeout | null = null;
+  private static legacyPythonSolverEnabled: boolean = process.env.WAVEX_ENABLE_LEGACY_PYTHON_SOLVER === '1';
 
   public static getMornyePythonPath(): string | null {
     const candidates = [
@@ -41,7 +42,8 @@ export class AutoTurnstileSolver {
   /**
    * Background SessionKeeper:
    * Periodically inspects all extensions with signed sessions, refreshes tokens before expiration,
-   * and pre-authenticates any expired session in the background so users never wait on Turnstile.
+   * Existing sessions are refreshed and synchronized in the background. New
+   * verification challenges are handled by the Chromium flow in the API.
    */
   public static startSessionKeeper(manager: ExtensionManager, intervalMinutes: number = 10): void {
     if (this.keeperTimer) clearInterval(this.keeperTimer);
@@ -85,8 +87,8 @@ export class AutoTurnstileSolver {
             }
           } catch {}
 
-          // 3. If still not authenticated and solver is available, solve quietly in background
-          if (!client.isAuthenticated() && this.isAvailable() && !this.isSolving) {
+          // Legacy opt-in only. The default path uses standard Chromium/Xvfb.
+          if (this.legacyPythonSolverEnabled && !client.isAuthenticated() && this.isAvailable() && !this.isSolving) {
             console.log(`[SessionKeeper] Pre-autenticando sesión firmada (${cfg.namespace}) en segundo plano...`);
             const res = await this.solveAndAuthenticate(client);
             if (res.success) {

@@ -564,9 +564,9 @@ Puedes invocar directamente cualquier extensión instalada (`.sflx`):
 
 ## 9. Autenticación Turnstile y Sesiones Firmadas (`zarz-v2`)
 
-WaveX incluye el daemon **`SessionKeeper`** y **`AutoTurnstileSolver`**, que mantienen autenticadas y renovadas automáticamente (`POST /session/refresh` con firma HMAC) las sesiones de `qobuz-web`, `tidal-web` y `amazon`. Además expone:
+WaveX incluye **`SessionKeeper`**, que renueva y sincroniza automáticamente (`POST /session/refresh` con firma HMAC) las sesiones activas de `qobuz-web`, `tidal-web` y `amazon`. Las verificaciones nuevas se abren en Chromium estándar. Además expone:
 - `GET /api/auth/turnstile/url?provider=qobuz-web` — Genera URL de reto Turnstile o informa si ya está autenticado.
-- `POST /api/auth/turnstile/solve-auto` — Ejecuta el solver automático en segundo plano y sincroniza la sesión en todas las extensiones.
+- `POST /api/auth/turnstile/solve-auto` — Conserva compatibilidad con la interfaz web: abre Chromium, espera el callback y sincroniza la sesión.
 - `POST /api/auth/turnstile/open?provider=qobuz-web` — Abre el reto en el navegador del sistema.
 - `POST /api/auth/turnstile/exchange` — Canjea manualmente un `grant` (`{ "provider": "qobuz-web", "grant": "gr_..." }`).
 - `GET /api/auth/turnstile/wait?provider=qobuz-web&timeout=75000` — Long-polling hasta que se complete la verificación.
