@@ -128,12 +128,57 @@ function stopBrowserProcess(child) {
 }
 export function closeSystemBrowser(provider) {
     const key = browserSessionKey(provider);
-    const child = activeChallengeBrowsers.get(key);
-    if (!child)
+    const active = activeChallengeBrowsers.get(key);
+    if (!active)
         return;
     activeChallengeBrowsers.delete(key);
-    stopBrowserProcess(child);
+    stopBrowserProcess(active.child);
     console.log(`[BrowserLaunch] Chromium cerrado para ${provider || 'la verificación activa'}.`);
+}
+async function captureBrowserDiagnostics(provider) {
+    const key = browserSessionKey(provider);
+    const active = activeChallengeBrowsers.get(key);
+    if (!active)
+        return null;
+    const debugDir = process.env.WAVEX_BROWSER_DEBUG_DIR || path.resolve(process.cwd(), 'data', 'browser-debug');
+    fs.mkdirSync(debugDir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const basePath = path.join(debugDir, `${key}-${stamp}`);
+    const details = {
+        provider: provider || 'default',
+        capturedAt: new Date().toISOString(),
+        debugEndpointAvailable: Boolean(active.debugEndpoint),
+        stderr: active.stderr.slice(-8000),
+    };
+    let browser = null;
+    try {
+        if (active.debugEndpoint) {
+            const puppeteerModule = 'puppeteer';
+            const puppeteer = await import(puppeteerModule);
+            const puppeteerClient = puppeteer.default || puppeteer;
+            browser = await puppeteerClient.connect({ browserWSEndpoint: active.debugEndpoint, defaultViewport: null });
+            const pages = await browser.pages();
+            const page = pages[pages.length - 1];
+            if (page) {
+                details.url = page.url();
+                details.title = await page.title().catch(() => '');
+                details.visibleText = await page.evaluate(() => document.body?.innerText?.slice(0, 4000) || '').catch(() => '');
+                await page.screenshot({ path: `${basePath}.png`, fullPage: true }).catch(() => null);
+            }
+        }
+    }
+    catch (error) {
+        details.captureError = error?.message || String(error);
+    }
+    finally {
+        try {
+            browser?.disconnect();
+        }
+        catch { }
+    }
+    fs.writeFileSync(`${basePath}.json`, JSON.stringify(details, null, 2), 'utf8');
+    console.warn(`[BrowserLaunch] Diagnóstico guardado en ${basePath}.json${fs.existsSync(`${basePath}.png`) ? ` y ${basePath}.png` : ''}.`);
+    return basePath;
 }
 async function ensureChromiumExecutable() {
     const existing = findChromiumExecutable();
@@ -171,6 +216,8 @@ export async function launchSystemBrowser(url, provider) {
                 '--no-first-run',
                 '--no-default-browser-check',
                 '--window-size=1280,720',
+                '--remote-debugging-address=127.0.0.1',
+                '--remote-debugging-port=0',
             ];
             if (process.env.WAVEX_CHROMIUM_NO_SANDBOX === '1') {
                 chromiumArgs.push('--no-sandbox');
@@ -191,24 +238,30 @@ export async function launchSystemBrowser(url, provider) {
                 console.log(`[BrowserLaunch] Abriendo Chromium (${chromiumBin}).`);
             }
             const child = spawn(command, args, { detached: true, stdio: ['ignore', 'ignore', 'pipe'], env, windowsHide: true });
-            activeChallengeBrowsers.set(key, child);
+            const active = { child, stderr: '' };
+            activeChallengeBrowsers.set(key, active);
             let stderrText = '';
             child.stderr?.on('data', (chunk) => {
-                if (stderrText.length < 500)
-                    stderrText += chunk.toString();
+                const text = chunk.toString();
+                if (stderrText.length < 2000)
+                    stderrText += text;
+                active.stderr = `${active.stderr}${text}`.slice(-16000);
+                const endpoint = text.match(/DevTools listening on (ws:\/\/[^\s]+)/)?.[1];
+                if (endpoint)
+                    active.debugEndpoint = endpoint;
             });
             const stayedAlive = await new Promise((resolve) => {
                 const timer = setTimeout(() => resolve(true), 1500);
                 child.once('error', (err) => {
                     clearTimeout(timer);
-                    if (activeChallengeBrowsers.get(key) === child)
+                    if (activeChallengeBrowsers.get(key)?.child === child)
                         activeChallengeBrowsers.delete(key);
                     console.warn(`[BrowserLaunch] Error al iniciar Chromium:`, err.message);
                     resolve(false);
                 });
                 child.once('exit', (code) => {
                     clearTimeout(timer);
-                    if (activeChallengeBrowsers.get(key) === child)
+                    if (activeChallengeBrowsers.get(key)?.child === child)
                         activeChallengeBrowsers.delete(key);
                     if (code && code !== 0) {
                         const firstErrLine = stderrText.trim().split('\n')[0] || '';
@@ -223,7 +276,6 @@ export async function launchSystemBrowser(url, provider) {
                     }
                 });
             });
-            child.stderr?.destroy();
             child.unref();
             if (stayedAlive)
                 return true;
@@ -326,6 +378,12 @@ export function registerRoutes(app, manager) {
         const configured = (process.env.WAVEX_CALLBACK_BASE_URL || '').trim();
         if (configured)
             return configured.replace(/\/$/, '');
+        // Chromium runs on this same host under Xvfb, so loopback is the most
+        // reliable callback and does not depend on PM2 inheriting extra variables.
+        if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+            const port = Number(process.env.PORT) || 3000;
+            return `http://127.0.0.1:${port}`;
+        }
         const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
         const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
         const protocol = forwardedProto || 'http';
@@ -353,11 +411,12 @@ export function registerRoutes(app, manager) {
                     authEvents.removeListener('verified', onVerified);
                     resolve(true);
                 };
-                const timer = setTimeout(() => {
+                const timer = setTimeout(async () => {
                     authEvents.removeListener('verified', onVerified);
                     const authenticated = client.isAuthenticated();
                     if (!authenticated) {
                         console.warn(`[BrowserLaunch] Tiempo agotado esperando el callback de ${provider} (${callbackBase}).`);
+                        await captureBrowserDiagnostics(provider);
                         closeSystemBrowser(provider);
                     }
                     resolve(authenticated);
@@ -1481,10 +1540,13 @@ export function registerRoutes(app, manager) {
                         console.log(`================================================================================\n`);
                     }
                     const verified = await new Promise((resolve) => {
-                        const timer = setTimeout(() => {
+                        const timer = setTimeout(async () => {
                             authEvents.removeListener('verified', onV);
                             console.warn(`[BrowserLaunch] Tiempo agotado esperando el callback de ${provider} (${callbackBase}).`);
-                            resolve(client.isAuthenticated());
+                            const authenticated = client.isAuthenticated();
+                            if (!authenticated)
+                                await captureBrowserDiagnostics(provider);
+                            resolve(authenticated);
                         }, opened ? 90000 : 60000);
                         const onV = (data) => {
                             if (!data || data.provider === provider) {

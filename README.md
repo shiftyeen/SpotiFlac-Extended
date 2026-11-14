@@ -47,6 +47,7 @@ Variables opcionales:
 - `XVFB_RUN_PATH`: ruta absoluta a `xvfb-run`.
 - `WAVEX_CHROMIUM_PROFILE_DIR`: directorio donde guardar los perfiles persistentes.
 - `WAVEX_CALLBACK_BASE_URL`: URL que recibirá el grant. En una VPS con el navegador local puede ser `http://127.0.0.1:3001`; detrás de un proxy puede ser la URL HTTPS pública.
+- `WAVEX_BROWSER_DEBUG_DIR`: directorio para diagnósticos de Chromium; por defecto `data/browser-debug`. Cuando una verificación expira se guardan un JSON y, si DevTools está disponible, una captura PNG.
 - `WAVEX_CHROMIUM_NO_SANDBOX=1`: solo para contenedores donde Chromium se ejecute como root. Es preferible ejecutar WaveX con un usuario sin privilegios y conservar el sandbox.
 
 Puedes comprobar el flujo con `POST /api/auth/turnstile/open?provider=amazon`. Si Turnstile exige interacción, el navegador permanecerá abierto hasta recibir el callback o hasta agotar el tiempo de espera; WaveX no simula clics.
