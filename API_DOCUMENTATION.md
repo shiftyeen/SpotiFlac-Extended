@@ -577,7 +577,7 @@ WaveX incluye **`SessionKeeper`**, que renueva y sincroniza automáticamente (`P
 
 El lanzador usa Chromium estándar. Si Linux no tiene `DISPLAY` ni `WAYLAND_DISPLAY`, ejecuta Chromium mediante `xvfb-run` en una pantalla virtual. Instala los requisitos con `sudo apt-get install -y chromium xvfb`. La sesión del navegador se conserva en `data/chromium-profile/<provider>` y el proceso se cierra cuando el callback o el canje directo confirma el grant.
 
-Configuración opcional: `CHROMIUM_PATH`, `XVFB_RUN_PATH`, `WAVEX_CHROMIUM_PROFILE_DIR` y `WAVEX_CHROMIUM_NO_SANDBOX=1` (solo si el proceso debe ejecutarse como root dentro de un contenedor).
+Configuración opcional: `CHROMIUM_PATH`, `XVFB_RUN_PATH`, `WAVEX_CHROMIUM_PROFILE_DIR`, `WAVEX_CALLBACK_BASE_URL` y `WAVEX_CHROMIUM_NO_SANDBOX=1` (solo si el proceso debe ejecutarse como root dentro de un contenedor). Para Chromium ejecutado en la misma VPS puede usarse `WAVEX_CALLBACK_BASE_URL=http://127.0.0.1:3001`.
 
 ---
 

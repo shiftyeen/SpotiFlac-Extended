@@ -170,7 +170,7 @@ export async function launchSystemBrowser(url, provider) {
                 `--user-data-dir=${profileDir}`,
                 '--no-first-run',
                 '--no-default-browser-check',
-                '--disable-gpu',
+                '--window-size=1280,720',
             ];
             if (process.env.WAVEX_CHROMIUM_NO_SANDBOX === '1') {
                 chromiumArgs.push('--no-sandbox');
@@ -323,6 +323,9 @@ export function registerRoutes(app, manager) {
         return { client: null, provider: p };
     }
     function getCallbackBase(req) {
+        const configured = (process.env.WAVEX_CALLBACK_BASE_URL || '').trim();
+        if (configured)
+            return configured.replace(/\/$/, '');
         const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
         const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
         const protocol = forwardedProto || 'http';
@@ -353,8 +356,10 @@ export function registerRoutes(app, manager) {
                 const timer = setTimeout(() => {
                     authEvents.removeListener('verified', onVerified);
                     const authenticated = client.isAuthenticated();
-                    if (!authenticated)
+                    if (!authenticated) {
+                        console.warn(`[BrowserLaunch] Tiempo agotado esperando el callback de ${provider} (${callbackBase}).`);
                         closeSystemBrowser(provider);
+                    }
                     resolve(authenticated);
                 }, timeoutMs);
                 authEvents.on('verified', onVerified);
@@ -1458,8 +1463,8 @@ export function registerRoutes(app, manager) {
             let challengeId;
             if (isVerification) {
                 const { client } = resolveSignedClient(provider);
-                const host = req.headers.host || '127.0.0.1:3000';
-                const chal = client ? await client.getChallengeUrl(`http://${host}`, provider).catch(() => null) : null;
+                const callbackBase = getCallbackBase(req);
+                const chal = client ? await client.getChallengeUrl(callbackBase, provider).catch(() => null) : null;
                 challengeUrl = chal?.challengeUrl;
                 challengeId = chal?.challengeId;
                 console.log(`[Download] ${provider} requiere verificación Turnstile. Challenge URL: ${challengeUrl || 'N/A'}`);
@@ -1478,8 +1483,9 @@ export function registerRoutes(app, manager) {
                     const verified = await new Promise((resolve) => {
                         const timer = setTimeout(() => {
                             authEvents.removeListener('verified', onV);
+                            console.warn(`[BrowserLaunch] Tiempo agotado esperando el callback de ${provider} (${callbackBase}).`);
                             resolve(client.isAuthenticated());
-                        }, opened ? 75000 : 60000);
+                        }, opened ? 90000 : 60000);
                         const onV = (data) => {
                             if (!data || data.provider === provider) {
                                 clearTimeout(timer);
