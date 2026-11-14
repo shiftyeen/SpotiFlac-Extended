@@ -37,16 +37,39 @@ function syncSessionAcrossNamespace(manager, sourceClient) {
         console.warn('[SyncSession] Failed to sync session across namespace:', e);
     }
 }
-function findChromiumCandidates() {
+function findChromiumExecutable() {
     const envBin = process.env.CHROMIUM_PATH || process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
-    const found = [];
     if (envBin && fs.existsSync(envBin))
-        found.push(envBin);
+        return envBin;
     const targetNames = process.platform === 'win32'
         ? ['chrome.exe', 'chromium.exe']
         : (process.platform === 'darwin' ? ['Google Chrome for Testing', 'Chromium'] : ['chrome', 'chromium', 'chromium-browser']);
-    // Prefer the OS browser: bundled Chrome for Testing can fail with exit code
-    // 127 when Linux is missing shared libraries such as libnspr4/libnss3.
+    // 1. Search inside project-local .chromium directory and ~/.cache/puppeteer
+    const searchDirs = [
+        path.resolve(process.cwd(), '.chromium'),
+        path.join(os.homedir(), '.cache', 'puppeteer'),
+    ];
+    for (const baseDir of searchDirs) {
+        if (!fs.existsSync(baseDir))
+            continue;
+        const stack = [baseDir];
+        while (stack.length > 0) {
+            const dir = stack.pop();
+            try {
+                for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                    const full = path.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        stack.push(full);
+                    }
+                    else if (targetNames.includes(entry.name)) {
+                        return full;
+                    }
+                }
+            }
+            catch { }
+        }
+    }
+    // 2. Check common system Chromium / Chrome paths
     const candidates = process.platform === 'win32'
         ? [
             'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -64,44 +87,55 @@ function findChromiumCandidates() {
                 '/snap/bin/chromium',
                 '/usr/bin/google-chrome',
                 '/usr/bin/google-chrome-stable',
-                '/usr/local/bin/chromium',
-                '/usr/local/bin/google-chrome',
             ];
     for (const c of candidates) {
-        if (fs.existsSync(c) && !found.includes(c))
-            found.push(c);
+        if (fs.existsSync(c))
+            return c;
     }
-    // Fall back to project-local .chromium and ~/.cache/puppeteer.
-    const searchDirs = [
-        path.resolve(process.cwd(), '.chromium'),
-        path.join(os.homedir(), '.cache', 'puppeteer'),
-    ];
-    for (const baseDir of searchDirs) {
-        if (!fs.existsSync(baseDir))
-            continue;
-        const stack = [baseDir];
-        while (stack.length > 0) {
-            const dir = stack.pop();
-            try {
-                for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-                    const full = path.join(dir, entry.name);
-                    if (entry.isDirectory()) {
-                        stack.push(full);
-                    }
-                    else if (targetNames.includes(entry.name) && !found.includes(full)) {
-                        found.push(full);
-                    }
-                }
-            }
-            catch { }
-        }
-    }
-    return found;
-}
-function findChromiumExecutable() {
-    return findChromiumCandidates()[0] || null;
+    return null;
 }
 let chromiumInstallPromise = null;
+const activeChallengeBrowsers = new Map();
+function browserSessionKey(provider) {
+    return (provider || 'default').replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+function findXvfbRunExecutable() {
+    const configured = process.env.XVFB_RUN_PATH;
+    if (configured && fs.existsSync(configured))
+        return configured;
+    for (const candidate of ['/usr/bin/xvfb-run', '/usr/local/bin/xvfb-run']) {
+        if (fs.existsSync(candidate))
+            return candidate;
+    }
+    return null;
+}
+function stopBrowserProcess(child) {
+    if (!child.pid || child.killed)
+        return;
+    try {
+        // Chromium and xvfb-run are launched in their own process group on Unix.
+        // Terminating the group also removes the temporary Xvfb process.
+        if (process.platform !== 'win32')
+            process.kill(-child.pid, 'SIGTERM');
+        else
+            child.kill();
+    }
+    catch {
+        try {
+            child.kill();
+        }
+        catch { }
+    }
+}
+export function closeSystemBrowser(provider) {
+    const key = browserSessionKey(provider);
+    const child = activeChallengeBrowsers.get(key);
+    if (!child)
+        return;
+    activeChallengeBrowsers.delete(key);
+    stopBrowserProcess(child);
+    console.log(`[BrowserLaunch] Chromium cerrado para ${provider || 'la verificación activa'}.`);
+}
 async function ensureChromiumExecutable() {
     const existing = findChromiumExecutable();
     if (existing)
@@ -122,18 +156,43 @@ async function ensureChromiumExecutable() {
     }
     return chromiumInstallPromise;
 }
-export async function launchSystemBrowser(url) {
-    const installedChromium = await ensureChromiumExecutable();
-    const chromiumBins = [installedChromium, ...findChromiumCandidates()]
-        .filter((value, index, list) => Boolean(value) && list.indexOf(value) === index);
-    for (const chromiumBin of chromiumBins) {
+export async function launchSystemBrowser(url, provider) {
+    const chromiumBin = await ensureChromiumExecutable();
+    if (chromiumBin) {
         try {
             const env = { ...process.env };
-            if (process.platform === 'linux' && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
-                env.DISPLAY = ':0';
+            const key = browserSessionKey(provider);
+            const profileRoot = process.env.WAVEX_CHROMIUM_PROFILE_DIR || path.resolve(process.cwd(), 'data', 'chromium-profile');
+            const profileDir = path.join(profileRoot, key);
+            fs.mkdirSync(profileDir, { recursive: true });
+            closeSystemBrowser(provider);
+            const chromiumArgs = [
+                `--app=${url}`,
+                `--user-data-dir=${profileDir}`,
+                '--no-first-run',
+                '--no-default-browser-check',
+                '--disable-gpu',
+            ];
+            if (process.env.WAVEX_CHROMIUM_NO_SANDBOX === '1') {
+                chromiumArgs.push('--no-sandbox');
             }
-            console.log(`[BrowserLaunch] Abriendo Chromium (${chromiumBin}) -> ${url}`);
-            const child = spawn(chromiumBin, [`--app=${url}`, '--no-first-run', '--no-default-browser-check', '--no-sandbox', '--disable-gpu'], { detached: true, stdio: ['ignore', 'ignore', 'pipe'], env });
+            let command = chromiumBin;
+            let args = chromiumArgs;
+            if (process.platform === 'linux' && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
+                const xvfbRun = findXvfbRunExecutable();
+                if (!xvfbRun) {
+                    console.warn('[BrowserLaunch] La VPS no tiene pantalla gráfica ni xvfb-run. Instala los paquetes xvfb y chromium.');
+                    return false;
+                }
+                command = xvfbRun;
+                args = ['-a', '-s', '-screen 0 1280x720x24 -nolisten tcp', chromiumBin, ...chromiumArgs];
+                console.log(`[BrowserLaunch] Abriendo Chromium en una pantalla virtual (${xvfbRun}).`);
+            }
+            else {
+                console.log(`[BrowserLaunch] Abriendo Chromium (${chromiumBin}).`);
+            }
+            const child = spawn(command, args, { detached: true, stdio: ['ignore', 'ignore', 'pipe'], env, windowsHide: true });
+            activeChallengeBrowsers.set(key, child);
             let stderrText = '';
             child.stderr?.on('data', (chunk) => {
                 if (stderrText.length < 500)
@@ -143,20 +202,21 @@ export async function launchSystemBrowser(url) {
                 const timer = setTimeout(() => resolve(true), 1500);
                 child.once('error', (err) => {
                     clearTimeout(timer);
+                    if (activeChallengeBrowsers.get(key) === child)
+                        activeChallengeBrowsers.delete(key);
                     console.warn(`[BrowserLaunch] Error al iniciar Chromium:`, err.message);
                     resolve(false);
                 });
                 child.once('exit', (code) => {
                     clearTimeout(timer);
+                    if (activeChallengeBrowsers.get(key) === child)
+                        activeChallengeBrowsers.delete(key);
                     if (code && code !== 0) {
-                        if (code === 127) {
-                            console.warn('[BrowserLaunch] Linux dependency missing: install libnspr4 and libnss3, or set CHROME_PATH to a system Chrome/Chromium binary.');
-                        }
                         const firstErrLine = stderrText.trim().split('\n')[0] || '';
                         console.warn(`[BrowserLaunch] Chromium se cerró con código ${code}${firstErrLine ? ` (${firstErrLine})` : ''}. ` +
                             (code === 127
                                 ? `Faltan librerías del sistema en Linux (ejecuta: sudo apt-get update && sudo apt-get install -y chromium-browser libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libgtk-3-0 libasound2t64 || sudo apt-get install -y libasound2).`
-                                : `Verifica que la VM tenga servidor gráfico X11/DISPLAY o abre el link desde tu navegador.`));
+                                : `Verifica la instalación de Chromium/Xvfb o abre el enlace desde tu navegador.`));
                         resolve(false);
                     }
                     else {
@@ -168,15 +228,13 @@ export async function launchSystemBrowser(url) {
             child.unref();
             if (stayedAlive)
                 return true;
+            if (process.platform === 'linux')
+                return false;
         }
         catch (e) {
             console.warn(`[BrowserLaunch] Falló lanzamiento directo de Chromium:`, e.message);
         }
     }
-    // On a headless Linux server xdg-open can return success without a usable
-    // browser. Let the caller print the challenge URL for a remote device.
-    if (process.platform === 'linux')
-        return false;
     let cmd;
     if (process.platform === 'win32') {
         cmd = `start "" "${url}"`;
@@ -310,14 +368,16 @@ export function registerRoutes(app, manager) {
         if (!result) {
             return { success: true, isAuthenticated: client.isAuthenticated(), provider, message: 'Sesión activa' };
         }
-        launchSystemBrowser(result.challengeUrl);
+        const opened = await launchSystemBrowser(result.challengeUrl, provider);
         return {
-            success: true,
-            opened: true,
+            success: opened,
+            opened,
             provider,
             challengeUrl: result.challengeUrl,
             challengeId: result.challengeId,
-            message: `Navegador abierto automáticamente para verificar ${provider}`,
+            message: opened
+                ? `Chromium abierto automáticamente para verificar ${provider}`
+                : `No se pudo abrir Chromium. Instala Chromium y Xvfb o abre challengeUrl manualmente.`,
         };
     });
     // Wait for verification completion (Long-poll)
@@ -379,6 +439,7 @@ export function registerRoutes(app, manager) {
             try {
                 await client.exchangeGrant(grant);
                 syncSessionAcrossNamespace(manager, client);
+                closeSystemBrowser(provider);
                 authEvents.emit('verified', { provider, timestamp: Date.now() });
                 authEvents.emit(`verified:${provider}`, { provider, timestamp: Date.now() });
             }
@@ -458,6 +519,7 @@ export function registerRoutes(app, manager) {
         try {
             await client.exchangeGrant(grant);
             syncSessionAcrossNamespace(manager, client);
+            closeSystemBrowser(provider);
             authEvents.emit('verified', { provider, timestamp: Date.now() });
             authEvents.emit(`verified:${provider}`, { provider, timestamp: Date.now() });
             return {
@@ -1366,7 +1428,7 @@ export function registerRoutes(app, manager) {
                 const autoPrompt = rawAutoPrompt === undefined ? true : (rawAutoPrompt !== false && rawAutoPrompt !== 'false' && rawAutoPrompt !== '0');
                 if (isVerification && autoPrompt && client && challengeUrl) {
                     console.log(`[Download] Intentando abrir Chromium para verificar Turnstile...`);
-                    const opened = await launchSystemBrowser(challengeUrl);
+                    const opened = await launchSystemBrowser(challengeUrl, provider);
                     if (!opened) {
                         console.log(`\n================================================================================`);
                         console.log(`🔓 [VERIFICACIÓN REQUERIDA - ${provider.toUpperCase()}]`);
@@ -1388,6 +1450,8 @@ export function registerRoutes(app, manager) {
                         };
                         authEvents.on('verified', onV);
                     });
+                    if (!verified)
+                        closeSystemBrowser(provider);
                     if (verified) {
                         console.log(`[Download] ${provider} verificación confirmada. Reintentando descarga...`);
                         syncSessionAcrossNamespace(manager, client);

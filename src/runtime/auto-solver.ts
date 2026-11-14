@@ -187,7 +187,7 @@ sitekey = "${sitekey}"
 challenge_url = "${challengeUrl}"
 
 try:
-    token, grant = solve_with_callback(sitekey, challenge_url, timeout=40)
+    token, grant = solve_with_callback(sitekey, challenge_url, timeout=75)
     if grant:
         print(json.dumps({"ok": True, "grant": grant}))
     else:
@@ -198,12 +198,30 @@ except Exception as exc:
 
     const grant = await new Promise<string | null>((resolve) => {
       const pyBin = process.env.PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3');
+      const solverEnv = {
+        ...process.env,
+        // PM2 may not inherit the shell's PYTHONPATH; make the Mornye package
+        // explicit for the child process that runs the automatic solver.
+        PYTHONPATH: [mornyeDir, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter),
+      };
+
+      console.log(`[AutoSolver] Ejecutando solver Python: ${pyBin} (Mornye: ${mornyeDir})`);
       const proc = spawn(pyBin, ['-u', '-c', pyScript], {
         windowsHide: true,
+        env: solverEnv,
       });
 
       let stdout = '';
       let stderr = '';
+      let settled = false;
+      let ceilingTimer: NodeJS.Timeout | null = null;
+
+      const finish = (value: string | null) => {
+        if (settled) return;
+        settled = true;
+        if (ceilingTimer) clearTimeout(ceilingTimer);
+        resolve(value);
+      };
 
       proc.stdout.on('data', (d) => {
         stdout += d.toString();
@@ -213,7 +231,13 @@ except Exception as exc:
         stderr += d.toString();
       });
 
+      proc.on('error', (err) => {
+        console.warn('[AutoSolver] No se pudo iniciar Python:', err.message);
+        finish(null);
+      });
+
       proc.on('close', (code) => {
+        if (settled) return;
         if (code !== 0) {
           console.warn('[AutoSolver] Proceso de Python finalizó con código:', code, stderr);
         }
@@ -224,23 +248,25 @@ except Exception as exc:
             if (line.startsWith('{') && line.endsWith('}')) {
               const parsed = JSON.parse(line);
               if (parsed.ok && parsed.grant) {
-                return resolve(parsed.grant);
+                return finish(parsed.grant);
               }
             }
           }
         } catch (e) {
           console.warn('[AutoSolver] Error parseando salida de solver:', e);
         }
-        resolve(null);
+        finish(null);
       });
 
-      // Ceiling timeout 50s
-      setTimeout(() => {
+      // Mornye may spend up to 100s navigating and locating the widget before
+      // the token polling window completes. Do not cancel it at 50s.
+      ceilingTimer = setTimeout(() => {
         try {
           proc.kill('SIGKILL');
         } catch {}
-        resolve(null);
-      }, 50000);
+        console.warn('[AutoSolver] Tiempo máximo agotado; se canceló el solver Python.');
+        finish(null);
+      }, 130000);
     });
 
     if (!grant) {

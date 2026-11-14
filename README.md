@@ -30,6 +30,26 @@ Abre tu navegador en:
 http://localhost:3000
 ```
 
+### VPS Linux sin escritorio: Chromium + Xvfb
+
+WaveX puede abrir el challenge en Chromium aunque la VPS solo se administre por SSH. En Ubuntu/Debian instala una vez:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y chromium xvfb
+```
+
+Cuando un proveedor solicite verificación, WaveX inicia Chromium dentro de una pantalla virtual con `xvfb-run`, espera el callback, guarda la sesión y cierra Chromium. Los perfiles persistentes se guardan por defecto en `data/chromium-profile/<provider>`.
+
+Variables opcionales:
+
+- `CHROMIUM_PATH`: ruta absoluta a Chromium si no está en una ubicación habitual.
+- `XVFB_RUN_PATH`: ruta absoluta a `xvfb-run`.
+- `WAVEX_CHROMIUM_PROFILE_DIR`: directorio donde guardar los perfiles persistentes.
+- `WAVEX_CHROMIUM_NO_SANDBOX=1`: solo para contenedores donde Chromium se ejecute como root. Es preferible ejecutar WaveX con un usuario sin privilegios y conservar el sandbox.
+
+Puedes comprobar el flujo con `POST /api/auth/turnstile/open?provider=amazon`. Si Turnstile exige interacción, el navegador permanecerá abierto hasta recibir el callback o hasta agotar el tiempo de espera; WaveX no simula clics.
+
 ---
 
 ## 📡 Endpoints de la API

@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { EventEmitter } from 'node:events';
-import { exec, spawn } from 'node:child_process';
+import { exec, spawn, type ChildProcess } from 'node:child_process';
 import AdmZip from 'adm-zip';
 import type { ExtensionManager } from '../manager.js';
 import { AlbumMatcher } from '../services/album-matcher.js';
@@ -41,43 +41,15 @@ function syncSessionAcrossNamespace(manager: ExtensionManager, sourceClient: Sig
   }
 }
 
-function findChromiumCandidates(): string[] {
+function findChromiumExecutable(): string | null {
   const envBin = process.env.CHROMIUM_PATH || process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
-  const found: string[] = [];
-  if (envBin && fs.existsSync(envBin)) found.push(envBin);
+  if (envBin && fs.existsSync(envBin)) return envBin;
 
   const targetNames = process.platform === 'win32'
     ? ['chrome.exe', 'chromium.exe']
     : (process.platform === 'darwin' ? ['Google Chrome for Testing', 'Chromium'] : ['chrome', 'chromium', 'chromium-browser']);
 
-  // Prefer the OS browser: bundled Chrome for Testing can fail with exit code
-  // 127 when Linux is missing shared libraries such as libnspr4/libnss3.
-  const candidates = process.platform === 'win32'
-    ? [
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-      ]
-    : process.platform === 'darwin'
-    ? [
-        '/Applications/Chromium.app/Contents/MacOS/Chromium',
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      ]
-    : [
-        '/usr/bin/chromium',
-        '/usr/bin/chromium-browser',
-        '/snap/bin/chromium',
-        '/usr/bin/google-chrome',
-        '/usr/bin/google-chrome-stable',
-        '/usr/local/bin/chromium',
-        '/usr/local/bin/google-chrome',
-      ];
-
-  for (const c of candidates) {
-    if (fs.existsSync(c) && !found.includes(c)) found.push(c);
-  }
-
-  // Fall back to project-local .chromium and ~/.cache/puppeteer.
+  // 1. Search inside project-local .chromium directory and ~/.cache/puppeteer
   const searchDirs = [
     path.resolve(process.cwd(), '.chromium'),
     path.join(os.homedir(), '.cache', 'puppeteer'),
@@ -92,22 +64,78 @@ function findChromiumCandidates(): string[] {
           const full = path.join(dir, entry.name);
           if (entry.isDirectory()) {
             stack.push(full);
-          } else if (targetNames.includes(entry.name) && !found.includes(full)) {
-            found.push(full);
+          } else if (targetNames.includes(entry.name)) {
+            return full;
           }
         }
-      } catch {}
+      } catch { }
     }
   }
 
-  return found;
-}
+  // 2. Check common system Chromium / Chrome paths
+  const candidates = process.platform === 'win32'
+    ? [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    ]
+    : process.platform === 'darwin'
+      ? [
+        '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      ]
+      : [
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser',
+        '/snap/bin/chromium',
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+      ];
 
-function findChromiumExecutable(): string | null {
-  return findChromiumCandidates()[0] || null;
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return null;
 }
 
 let chromiumInstallPromise: Promise<string | null> | null = null;
+const activeChallengeBrowsers = new Map<string, ChildProcess>();
+
+function browserSessionKey(provider?: string): string {
+  return (provider || 'default').replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function findXvfbRunExecutable(): string | null {
+  const configured = process.env.XVFB_RUN_PATH;
+  if (configured && fs.existsSync(configured)) return configured;
+
+  for (const candidate of ['/usr/bin/xvfb-run', '/usr/local/bin/xvfb-run']) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+function stopBrowserProcess(child: ChildProcess): void {
+  if (!child.pid || child.killed) return;
+  try {
+    // Chromium and xvfb-run are launched in their own process group on Unix.
+    // Terminating the group also removes the temporary Xvfb process.
+    if (process.platform !== 'win32') process.kill(-child.pid, 'SIGTERM');
+    else child.kill();
+  } catch {
+    try { child.kill(); } catch { }
+  }
+}
+
+export function closeSystemBrowser(provider?: string): void {
+  const key = browserSessionKey(provider);
+  const child = activeChallengeBrowsers.get(key);
+  if (!child) return;
+
+  activeChallengeBrowsers.delete(key);
+  stopBrowserProcess(child);
+  console.log(`[BrowserLaunch] Chromium cerrado para ${provider || 'la verificación activa'}.`);
+}
 
 async function ensureChromiumExecutable(): Promise<string | null> {
   const existing = findChromiumExecutable();
@@ -134,23 +162,50 @@ async function ensureChromiumExecutable(): Promise<string | null> {
   return chromiumInstallPromise;
 }
 
-export async function launchSystemBrowser(url: string): Promise<boolean> {
-  const installedChromium = await ensureChromiumExecutable();
-  const chromiumBins = [installedChromium, ...findChromiumCandidates()]
-    .filter((value, index, list): value is string => Boolean(value) && list.indexOf(value) === index);
-
-  for (const chromiumBin of chromiumBins) {
+export async function launchSystemBrowser(url: string, provider?: string): Promise<boolean> {
+  const chromiumBin = await ensureChromiumExecutable();
+  if (chromiumBin) {
     try {
       const env = { ...process.env };
-      if (process.platform === 'linux' && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
-        env.DISPLAY = ':0';
+      const key = browserSessionKey(provider);
+      const profileRoot = process.env.WAVEX_CHROMIUM_PROFILE_DIR || path.resolve(process.cwd(), 'data', 'chromium-profile');
+      const profileDir = path.join(profileRoot, key);
+      fs.mkdirSync(profileDir, { recursive: true });
+
+      closeSystemBrowser(provider);
+
+      const chromiumArgs = [
+        `--app=${url}`,
+        `--user-data-dir=${profileDir}`,
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-gpu',
+      ];
+      if (process.env.WAVEX_CHROMIUM_NO_SANDBOX === '1') {
+        chromiumArgs.push('--no-sandbox');
       }
-      console.log(`[BrowserLaunch] Abriendo Chromium (${chromiumBin}) -> ${url}`);
+
+      let command = chromiumBin;
+      let args = chromiumArgs;
+      if (process.platform === 'linux' && !env.DISPLAY && !env.WAYLAND_DISPLAY) {
+        const xvfbRun = findXvfbRunExecutable();
+        if (!xvfbRun) {
+          console.warn('[BrowserLaunch] La VPS no tiene pantalla gráfica ni xvfb-run. Instala los paquetes xvfb y chromium.');
+          return false;
+        }
+        command = xvfbRun;
+        args = ['-a', '-s', '-screen 0 1280x720x24 -nolisten tcp', chromiumBin, ...chromiumArgs];
+        console.log(`[BrowserLaunch] Abriendo Chromium en una pantalla virtual (${xvfbRun}).`);
+      } else {
+        console.log(`[BrowserLaunch] Abriendo Chromium (${chromiumBin}).`);
+      }
+
       const child = spawn(
-        chromiumBin,
-        [`--app=${url}`, '--no-first-run', '--no-default-browser-check', '--no-sandbox', '--disable-gpu'],
-        { detached: true, stdio: ['ignore', 'ignore', 'pipe'], env }
+        command,
+        args,
+        { detached: true, stdio: ['ignore', 'ignore', 'pipe'], env, windowsHide: true }
       );
+      activeChallengeBrowsers.set(key, child);
       let stderrText = '';
       child.stderr?.on('data', (chunk) => {
         if (stderrText.length < 500) stderrText += chunk.toString();
@@ -159,21 +214,20 @@ export async function launchSystemBrowser(url: string): Promise<boolean> {
         const timer = setTimeout(() => resolve(true), 1500);
         child.once('error', (err) => {
           clearTimeout(timer);
+          if (activeChallengeBrowsers.get(key) === child) activeChallengeBrowsers.delete(key);
           console.warn(`[BrowserLaunch] Error al iniciar Chromium:`, err.message);
           resolve(false);
         });
         child.once('exit', (code) => {
           clearTimeout(timer);
+          if (activeChallengeBrowsers.get(key) === child) activeChallengeBrowsers.delete(key);
           if (code && code !== 0) {
-            if (code === 127) {
-              console.warn('[BrowserLaunch] Linux dependency missing: install libnspr4 and libnss3, or set CHROME_PATH to a system Chrome/Chromium binary.');
-            }
             const firstErrLine = stderrText.trim().split('\n')[0] || '';
             console.warn(
               `[BrowserLaunch] Chromium se cerró con código ${code}${firstErrLine ? ` (${firstErrLine})` : ''}. ` +
               (code === 127
                 ? `Faltan librerías del sistema en Linux (ejecuta: sudo apt-get update && sudo apt-get install -y chromium-browser libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libgtk-3-0 libasound2t64 || sudo apt-get install -y libasound2).`
-                : `Verifica que la VM tenga servidor gráfico X11/DISPLAY o abre el link desde tu navegador.`)
+                : `Verifica la instalación de Chromium/Xvfb o abre el enlace desde tu navegador.`)
             );
             resolve(false);
           } else {
@@ -184,14 +238,11 @@ export async function launchSystemBrowser(url: string): Promise<boolean> {
       child.stderr?.destroy();
       child.unref();
       if (stayedAlive) return true;
+      if (process.platform === 'linux') return false;
     } catch (e: any) {
       console.warn(`[BrowserLaunch] Falló lanzamiento directo de Chromium:`, e.message);
     }
   }
-
-  // On a headless Linux server xdg-open can return success without a usable
-  // browser. Let the caller print the challenge URL for a remote device.
-  if (process.platform === 'linux') return false;
 
   let cmd: string;
   if (process.platform === 'win32') {
@@ -349,15 +400,17 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
       return { success: true, isAuthenticated: client.isAuthenticated(), provider, message: 'Sesión activa' };
     }
 
-    launchSystemBrowser(result.challengeUrl);
+    const opened = await launchSystemBrowser(result.challengeUrl, provider);
 
     return {
-      success: true,
-      opened: true,
+      success: opened,
+      opened,
       provider,
       challengeUrl: result.challengeUrl,
       challengeId: result.challengeId,
-      message: `Navegador abierto automáticamente para verificar ${provider}`,
+      message: opened
+        ? `Chromium abierto automáticamente para verificar ${provider}`
+        : `No se pudo abrir Chromium. Instala Chromium y Xvfb o abre challengeUrl manualmente.`,
     };
   });
 
@@ -432,6 +485,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
       try {
         await client.exchangeGrant(grant);
         syncSessionAcrossNamespace(manager, client);
+        closeSystemBrowser(provider);
         authEvents.emit('verified', { provider, timestamp: Date.now() });
         authEvents.emit(`verified:${provider}`, { provider, timestamp: Date.now() });
       } catch (err: any) {
@@ -518,6 +572,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
     try {
       await client.exchangeGrant(grant);
       syncSessionAcrossNamespace(manager, client);
+      closeSystemBrowser(provider);
 
       authEvents.emit('verified', { provider, timestamp: Date.now() });
       authEvents.emit(`verified:${provider}`, { provider, timestamp: Date.now() });
@@ -740,9 +795,9 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
               if (appleMeta) {
                 setCached(enrichTrackCache, trackKey, appleMeta, 60 * 60 * 1000);
               }
-            } catch {}
+            } catch { }
           })
-        ).catch(() => {});
+        ).catch(() => { });
       }
 
       setCached(searchCache, cacheKey, octaveData, 60 * 60 * 1000);
@@ -1209,7 +1264,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
         LinkResolver.resolveByMetadata(title, artist || '', isrc, manager),
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
       ]);
-    } catch {}
+    } catch { }
 
     // The metadata resolver takes the first Spotify hit blindly, so an unknown song can come back with the ISRC of an
     // UNRELATED track. Only trust the ISRC/links if the user gave the ISRC, or the resolved ISRC really is this song.
@@ -1221,7 +1276,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
           const dz: any = await dzRes.json();
           if (dz && !dz.error && matchesTrack({ title: dz.title, artist: dz.artist?.name }, title, artist || '').ok) isrcTrusted = true;
         }
-      } catch {}
+      } catch { }
     }
     if (!isrcTrusted) resolvedLinks = null;
 
@@ -1259,7 +1314,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
               preparedContext = check.prepared_context || null;
               verifiedBy = 'checkAvailability';
             }
-          } catch {}
+          } catch { }
 
           // 2) ISRC-keyed hint from the resolver (Qobuz/Tidal/Deezer) if already resolved
           if (!trackId && hintId) {
@@ -1285,7 +1340,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
                   }
                 }
               }
-            } catch {}
+            } catch { }
           }
 
           // 3b) Direct public Qobuz API fallback if qobuz-web worker timed out or was busy
@@ -1318,12 +1373,12 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
                   }
                 }
               }
-            } catch {}
+            } catch { }
           }
 
           // 4) YouTube link given by the user: that exact video is, by definition, on YT Music
           if (isYtm && ytHintId) { trackId = ytHintId; verifiedBy = 'user-youtube-link'; }
-        } catch (_) {}
+        } catch (_) { }
 
         // Strict mode: only list providers where the song really exists. YT Music is always kept as the final option.
         if (strict && !trackId && !isYtm) return;
@@ -1443,7 +1498,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             effectiveTrackId = resolved.nativeIds.qobuzId;
             console.log(`[Download] Successfully mapped Qobuz track ID -> ${effectiveTrackId}`);
           }
-        } catch {}
+        } catch { }
       } else if (provider === 'tidal-web' && !/^\d+$/.test(effectiveTrackId)) {
         try {
           const resolved = await LinkResolver.resolveByMetadata(title || '', artist || '', isrc || effectiveTrackId, manager);
@@ -1451,7 +1506,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             effectiveTrackId = resolved.nativeIds.tidalId;
             console.log(`[Download] Successfully mapped Tidal track ID -> ${effectiveTrackId}`);
           }
-        } catch {}
+        } catch { }
       } else if (provider === 'deezer' && !/^\d+$/.test(effectiveTrackId)) {
         try {
           const resolved = await LinkResolver.resolveByMetadata(title || '', artist || '', isrc || effectiveTrackId, manager);
@@ -1459,7 +1514,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             effectiveTrackId = resolved.nativeIds.deezerId;
             console.log(`[Download] Successfully mapped Deezer track ID -> ${effectiveTrackId}`);
           }
-        } catch {}
+        } catch { }
       } else if (provider === 'amazon' && !/^B[0-9A-Z]{9}$/i.test(effectiveTrackId)) {
         try {
           const resolved = await LinkResolver.resolveByMetadata(title || '', artist || '', isrc || effectiveTrackId, manager);
@@ -1467,7 +1522,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             effectiveTrackId = resolved.nativeIds.amazonAsin;
             console.log(`[Download] Successfully mapped Amazon ASIN -> ${effectiveTrackId}`);
           }
-        } catch {}
+        } catch { }
       }
 
       console.log(`[Download] ${provider} track=${effectiveTrackId} (orig=${trackId}) quality=${quality} -> ${targetPath}`);
@@ -1509,7 +1564,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
                 downloadOptions = { ...mornyeOpts, preparedContext: check.prepared_context };
               }
             }
-          } catch {}
+          } catch { }
         }
       }
 
@@ -1540,7 +1595,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
 
         if (isVerification && autoPrompt && client && challengeUrl) {
           console.log(`[Download] Intentando abrir Chromium para verificar Turnstile...`);
-          const opened = await launchSystemBrowser(challengeUrl);
+          const opened = await launchSystemBrowser(challengeUrl, provider);
           if (!opened) {
             console.log(`\n================================================================================`);
             console.log(`🔓 [VERIFICACIÓN REQUERIDA - ${provider.toUpperCase()}]`);
@@ -1562,6 +1617,8 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             };
             authEvents.on('verified', onV);
           });
+
+          if (!verified) closeSystemBrowser(provider);
 
           if (verified) {
             console.log(`[Download] ${provider} verificación confirmada. Reintentando descarga...`);
@@ -1696,10 +1753,10 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
 
       if (files.length > maxFiles) {
         files.slice(maxFiles).forEach((f) => {
-          try { fs.unlinkSync(f.path); } catch {}
+          try { fs.unlinkSync(f.path); } catch { }
         });
       }
-    } catch {}
+    } catch { }
   }
 
   async function stripVideoIfPresent(filePath: string): Promise<string> {
@@ -1722,13 +1779,13 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
               try {
                 fs.unlinkSync(filePath);
                 fs.renameSync(purePath, filePath);
-              } catch {}
+              } catch { }
             }
             resolve();
           });
         });
       }
-    } catch {}
+    } catch { }
     return filePath;
   }
 
@@ -1756,7 +1813,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
       ]);
       ff.stdout.pipe(reply.raw);
       req.raw.on('close', () => {
-        try { ff.kill('SIGKILL'); } catch {}
+        try { ff.kill('SIGKILL'); } catch { }
       });
       return reply;
     }
@@ -1921,10 +1978,10 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             const isValidNativeId =
               targetTrackId &&
               ((candidateProv === 'qobuz-web' && /^\d+$/.test(targetTrackId)) ||
-               (candidateProv === 'tidal-web' && /^\d+$/.test(targetTrackId)) ||
-               (candidateProv === 'deezer' && /^\d+$/.test(targetTrackId)) ||
-               (candidateProv === 'amazon' && /^B[0-9A-Z]{9}$/i.test(targetTrackId)) ||
-               (candidateProv === 'ytmusic-spotiflac' && /^[A-Za-z0-9_-]{11}$/.test(targetTrackId)));
+                (candidateProv === 'tidal-web' && /^\d+$/.test(targetTrackId)) ||
+                (candidateProv === 'deezer' && /^\d+$/.test(targetTrackId)) ||
+                (candidateProv === 'amazon' && /^B[0-9A-Z]{9}$/i.test(targetTrackId)) ||
+                (candidateProv === 'ytmusic-spotiflac' && /^[A-Za-z0-9_-]{11}$/.test(targetTrackId)));
 
             if (!isValidNativeId) {
               targetTrackId = undefined;
@@ -1957,27 +2014,27 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
                   if (res && Array.isArray(res) && res.length > 0 && res[0].id) {
                     targetTrackId = String(res[0].id);
                   }
-                } catch {}
+                } catch { }
               }
             }
 
             if (!targetTrackId) continue;
 
             // The metadata resolver takes the first Spotify hit blindly, so an unknown song can come back with the ISRC of an
-    // UNRELATED track. Only trust the ISRC/links if the user gave the ISRC, or the resolved ISRC really is this song.
-    let isrcTrusted = Boolean(isrc);
-    if (!isrcTrusted && resolvedLinks?.isrc) {
-      try {
-        const dzRes = await fetch(`https://api.deezer.com/track/isrc:${encodeURIComponent(resolvedLinks.isrc)}`, { signal: AbortSignal.timeout(3500) });
-        if (dzRes.ok) {
-          const dz: any = await dzRes.json();
-          if (dz && !dz.error && matchesTrack({ title: dz.title, artist: dz.artist?.name }, title, artist || '').ok) isrcTrusted = true;
-        }
-      } catch {}
-    }
-    if (!isrcTrusted) resolvedLinks = null;
+            // UNRELATED track. Only trust the ISRC/links if the user gave the ISRC, or the resolved ISRC really is this song.
+            let isrcTrusted = Boolean(isrc);
+            if (!isrcTrusted && resolvedLinks?.isrc) {
+              try {
+                const dzRes = await fetch(`https://api.deezer.com/track/isrc:${encodeURIComponent(resolvedLinks.isrc)}`, { signal: AbortSignal.timeout(3500) });
+                if (dzRes.ok) {
+                  const dz: any = await dzRes.json();
+                  if (dz && !dz.error && matchesTrack({ title: dz.title, artist: dz.artist?.name }, title, artist || '').ok) isrcTrusted = true;
+                }
+              } catch { }
+            }
+            if (!isrcTrusted) resolvedLinks = null;
 
-    const effectiveIsrc = isrc || resolvedLinks?.isrc || '';
+            const effectiveIsrc = isrc || resolvedLinks?.isrc || '';
             const mornyeOpts = buildMornyeOptions(candidateProv, title, artist || '', 0, effectiveIsrc, resolvedLinks);
             const downloadOptions = {
               ...mornyeOpts,
@@ -2226,7 +2283,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             if (!resolvedArtist) resolvedArtist = rawAuthor;
           }
         }
-      } catch {}
+      } catch { }
     }
 
     // Also support Spotify / Apple Music / generic URLs via LinkResolver
@@ -2255,10 +2312,10 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
                   }
                 }
               }
-            } catch {}
+            } catch { }
           }
         }
-      } catch {}
+      } catch { }
 
       // The resolver only returns cross-platform links, so read real title/artist from the source page.
       if (!resolvedTitle || !resolvedArtist) {
@@ -2284,7 +2341,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
               if (!resolvedArtist && ogDesc) resolvedArtist = ogDesc.split('·')[0].replace(/^Song by\s+/i, '').trim();
             }
           }
-        } catch {}
+        } catch { }
       }
     }
 
@@ -2297,7 +2354,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
         const amzTrack: any = await amzRunner.call('getTrack', [amazonAsin], 3000);
         if (amzTrack?.title && (resolvedTitle === 'Unknown Track' || !resolvedTitle)) resolvedTitle = amzTrack.title;
         if (amzTrack?.artist && !resolvedArtist) resolvedArtist = amzTrack.artist;
-      } catch {}
+      } catch { }
     }
 
     if (!resolvedTitle) resolvedTitle = rawQuery || (ytVideoId || amazonAsin ? '' : rawTrackId);
@@ -2320,7 +2377,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             ytVideoId = String(searchRes[0].id);
             PersistentCacheDB.set('fast_ytm320', cacheLookupKey, { videoId: ytVideoId }, 14 * 24 * 60 * 60 * 1000);
           }
-        } catch {}
+        } catch { }
       }
     }
 
@@ -2431,7 +2488,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             // Clear any partial data from previous failed attempt
             emitter.buffer = [];
             if (fs.existsSync(targetPath)) {
-              try { fs.unlinkSync(targetPath); } catch {}
+              try { fs.unlinkSync(targetPath); } catch { }
             }
 
             // Resolve Amazon ASIN if not yet resolved
@@ -2442,7 +2499,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
                 try {
                   const linkMatch = await LinkResolver.resolveByMetadata(resolvedTitle, resolvedArtist, rawIsrc, manager);
                   if (linkMatch?.nativeIds?.amazonAsin) amazonAsin = linkMatch.nativeIds.amazonAsin;
-                } catch {}
+                } catch { }
               }
               if (!amazonAsin) {
                 try {
@@ -2455,7 +2512,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
                       PersistentCacheDB.set('fast_amz_asin', cacheKey, amazonAsin, 14 * 24 * 60 * 60 * 1000);
                     }
                   }
-                } catch {}
+                } catch { }
               }
             }
 
@@ -2685,7 +2742,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             if (!title) title = searchRes[0].title || searchRes[0].name;
             if (!artist) artist = searchRes[0].artist || searchRes[0].artists;
           }
-        } catch {}
+        } catch { }
       }
     }
 
@@ -2816,7 +2873,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             }));
           }
         }
-      } catch {}
+      } catch { }
     }
 
     return {
@@ -2915,11 +2972,11 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
           // Consume stream in background so it caches to disk
           if (r.body) {
             const reader = (r.body as any).getReader();
-            const pump = (): any => reader.read().then(({ done }: any) => (!done ? pump() : null)).catch(() => {});
+            const pump = (): any => reader.read().then(({ done }: any) => (!done ? pump() : null)).catch(() => { });
             pump();
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     return {
@@ -3175,7 +3232,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
     if (!reqProvider || !reqTrackId) {
       try {
         resolvedLinks = await LinkResolver.resolveByMetadata(title, artist || '', isrc, manager);
-      } catch {}
+      } catch { }
     }
 
     // The metadata resolver takes the first Spotify hit blindly, so an unknown song can come back with the ISRC of an
@@ -3188,7 +3245,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
           const dz: any = await dzRes.json();
           if (dz && !dz.error && matchesTrack({ title: dz.title, artist: dz.artist?.name }, title, artist || '').ok) isrcTrusted = true;
         }
-      } catch {}
+      } catch { }
     }
     if (!isrcTrusted) resolvedLinks = null;
 
@@ -3258,7 +3315,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             targetTrackId = String(check.track_id);
             preparedContext = check.prepared_context || null;
           }
-        } catch {}
+        } catch { }
       } else if (!targetTrackId) {
         try {
           const check = await runner.call('checkAvailability', [effectiveIsrc, title, artist || '', mornyeOpts], 6000);
@@ -3266,7 +3323,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
             targetTrackId = String(check.track_id);
             preparedContext = check.prepared_context || null;
           }
-        } catch {}
+        } catch { }
       }
 
       // Fallback to customSearch if checkAvailability didn't find direct match
@@ -3277,7 +3334,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
           if (res && Array.isArray(res) && res.length > 0 && res[0].id) {
             targetTrackId = String(res[0].id);
           }
-        } catch {}
+        } catch { }
       }
 
       if (!targetTrackId) {
@@ -3316,7 +3373,7 @@ export function registerRoutes(app: FastifyInstance, manager: ExtensionManager) 
                 syncSessionAcrossNamespace(manager, client);
                 dlResult = await runner.call('download', [targetTrackId, quality, targetPath, '__progress__', downloadOptions], 180000);
               }
-            } catch {}
+            } catch { }
           }
         }
 

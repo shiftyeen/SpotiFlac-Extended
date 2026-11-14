@@ -573,6 +573,14 @@ WaveX incluye el daemon **`SessionKeeper`** y **`AutoTurnstileSolver`**, que man
 
 ---
 
+### VPS Linux sin entorno gráfico
+
+El lanzador usa Chromium estándar. Si Linux no tiene `DISPLAY` ni `WAYLAND_DISPLAY`, ejecuta Chromium mediante `xvfb-run` en una pantalla virtual. Instala los requisitos con `sudo apt-get install -y chromium xvfb`. La sesión del navegador se conserva en `data/chromium-profile/<provider>` y el proceso se cierra cuando el callback o el canje directo confirma el grant.
+
+Configuración opcional: `CHROMIUM_PATH`, `XVFB_RUN_PATH`, `WAVEX_CHROMIUM_PROFILE_DIR` y `WAVEX_CHROMIUM_NO_SANDBOX=1` (solo si el proceso debe ejecutarse como root dentro de un contenedor).
+
+---
+
 ## 10. Gestión de Extensiones (`.sflx`) y Auto-Actualización
 
 ### 10.1 `GET /api/providers` (Catálogo y Estado de Extensiones)
